@@ -1,0 +1,29 @@
+name: Backend quality checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  node-quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate Prisma model (no DB connection)
+        run: npx prisma validate
+        env:
+          DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/lotus_clinic
+      - name: Parse backend + frontend JavaScript
+        run: npm run check:syntax
+      - name: Run isolated security unit tests
+        run: npm run test:unit

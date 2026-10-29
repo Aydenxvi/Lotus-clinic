@@ -57,6 +57,11 @@
     if (!res.ok) {
       throw new ApiClientError((data && data.error) || `HTTP ${res.status}`, res.status, data);
     }
+    // Login and registration rotate the session id server-side. A CSRF token
+    // bound to the previous anonymous session must never be reused afterward.
+    if (["/auth/login", "/auth/register", "/auth/logout"].includes(path)) {
+      csrfToken = null;
+    }
     return data;
   }
 

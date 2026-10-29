@@ -3,6 +3,7 @@ const { prisma } = require("../config/db");
 const { hashPassword, verifyPassword } = require("../services/password.service");
 const { ApiError } = require("../middleware/errorHandler");
 const { recordAudit } = require("../middleware/audit");
+const { matchesSessionIdentity, sessionUserId } = require("../services/session-identity.service");
 
 const registerSchema = z.object({
   firstName: z.string().trim().min(1).max(120),
@@ -48,6 +49,7 @@ async function register(req, res) {
   });
 
   await recordAudit({ userId: user.id, action: "register", targetType: "user", targetId: user.id, meta: { role: "patient" }, ip: req.ip });
+  await regenerateLoginSession(req);
   setSessionUser(req, user, user.patient);
   res.status(201).json({ user: publicUser(user, user.patient) });
 }
@@ -82,6 +84,7 @@ async function login(req, res) {
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await recordAudit({ userId: user.id, action: "login", targetType: "user", targetId: user.id, meta: { role: user.role }, ip: req.ip });
+  await regenerateLoginSession(req);
   setSessionUser(req, user, user.patient, user.doctor);
   res.json({ user: publicUser(user, user.patient, user.doctor) });
 }
@@ -91,7 +94,7 @@ async function logout(req, res) {
   const ip = req.ip;
   req.session.destroy((err) => {
     if (err) return res.status(500).json({ error: "Could not log out" });
-    res.clearCookie("lotus.sid");
+    res.clearCookie("lotus.sid", { path: "/" });
     if (userId) recordAudit({ userId, action: "logout", ip });
     res.json({ ok: true });
   });
@@ -104,15 +107,23 @@ async function logout(req, res) {
 async function me(req, res) {
   if (!req.session || !req.session.user) return res.status(401).json({ error: "Not authenticated" });
   const sessionUser = req.session.user;
-  const user = await prisma.user.findUnique({
-    where: { id: BigInt(sessionUser.id) },
+  const id = sessionUserId(sessionUser);
+  const user = id ? await prisma.user.findUnique({
+    where: { id },
     include: { patient: true, doctor: true }
-  });
-  if (!user || !user.active) {
-    req.session.destroy(() => {});
-    return res.status(401).json({ error: "Not authenticated" });
+  }) : null;
+  if (!matchesSessionIdentity(sessionUser, user)) {
+    return req.session.destroy(() => res.status(401).json({ error: "Not authenticated" }));
   }
   res.json({ user: publicUser(user, user.patient, user.doctor) });
+}
+
+// Regenerating after successful authentication prevents session fixation.
+// The frontend refreshes its CSRF token after login/register accordingly.
+async function regenerateLoginSession(req) {
+  await new Promise((resolve, reject) => {
+    req.session.regenerate((error) => error ? reject(error) : resolve());
+  });
 }
 
 function setSessionUser(req, user, patient, doctor) {

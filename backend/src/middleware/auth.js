@@ -1,14 +1,36 @@
-// RBAC core. req.session.user is set only by the login controller, straight from
-// the `users` table — a client can never set or change it, and the role is never
-// read from the request body. Every protected route must list requireAuth first,
-// then requireRole(...) if it needs to.
+// Role checks are enforced at the API boundary. Session claims are revalidated
+// against the database on EVERY protected request. This immediately revokes
+// access when an account is disabled, demoted or unlinked from its doctor.
+const { prisma } = require("../config/db");
+const { matchesSessionIdentity, sessionUserId } = require("../services/session-identity.service");
 
-function requireAuth(req, res, next) {
-  if (!req.session || !req.session.user) {
-    return res.status(401).json({ error: "Not authenticated" });
+function unauthorized(req, res) {
+  if (!req.session) return res.status(401).json({ error: "Not authenticated" });
+  return req.session.destroy(() => {
+    res.status(401).json({ error: "Not authenticated" });
+  });
+}
+
+async function requireAuth(req, res, next) {
+  const cached = req.session && req.session.user;
+  if (!cached) return res.status(401).json({ error: "Not authenticated" });
+  const id = sessionUserId(cached);
+  if (!id) return unauthorized(req, res);
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true, active: true, role: true,
+        patient: { select: { id: true } },
+        doctor: { select: { id: true, active: true } }
+      }
+    });
+    if (!matchesSessionIdentity(cached, dbUser)) return unauthorized(req, res);
+    req.user = cached;
+    next();
+  } catch (error) {
+    next(error);
   }
-  req.user = req.session.user; // { id, role, username, doctorId?, patientId? }
-  next();
 }
 
 function requireRole(...roles) {
@@ -22,8 +44,6 @@ function requireRole(...roles) {
   };
 }
 
-// A doctor may only act on their OWN patients/appointments; chief bypasses the check.
-// Always resolve the scoping id from the server-side session, never from the URL.
 function requireOwnDoctorOrChief(getDoctorIdFromReq) {
   return (req, res, next) => {
     if (req.user.role === "chief") return next();
