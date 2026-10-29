@@ -8,6 +8,8 @@ const {
   mySchedule,
   myPatients,
   getPatientChart,
+  getAppointmentConsultation,
+  updatePatientMedicalRecord,
   createConsultation,
   updateAppointmentStatus,
   addAvailabilityOverride,
@@ -29,6 +31,8 @@ router.post("/leaves", doubleCsrfProtection, asyncHandler(operations.createMyLea
 router.get("/schedule", asyncHandler(mySchedule));
 router.get("/patients", asyncHandler(myPatients));
 router.get("/patients/:patientId", asyncHandler(getPatientChart));
+router.patch("/patients/:patientId/medical-record", doubleCsrfProtection, asyncHandler(updatePatientMedicalRecord));
+router.get("/appointments/:id/consultation", asyncHandler(getAppointmentConsultation));
 router.post("/consultations", doubleCsrfProtection, asyncHandler(createConsultation));
 router.patch("/appointments/:id/status", doubleCsrfProtection, asyncHandler(updateAppointmentStatus));
 router.post("/availability", doubleCsrfProtection, asyncHandler(addAvailabilityOverride));

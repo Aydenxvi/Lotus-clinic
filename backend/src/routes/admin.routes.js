@@ -5,6 +5,7 @@ const { doubleCsrfProtection } = require("../middleware/csrf");
 const admin = require("../controllers/admin.controller");
 const operations = require("../controllers/operations.controller");
 const clinical = require("../controllers/clinical-operations.controller");
+const treatment = require("../controllers/treatment.controller");
 
 const router = express.Router();
 
@@ -36,6 +37,7 @@ router.delete("/doctors/:id/schedule-template/:templateId", doubleCsrfProtection
 router.get("/departments", asyncHandler(admin.listDepartments));
 router.patch("/departments/:id", doubleCsrfProtection, asyncHandler(admin.updateDepartment));
 
+router.get("/treatment", asyncHandler(treatment.listTreatment));
 router.get("/appointments", asyncHandler(admin.listAppointments));
 router.patch("/appointments/:id", doubleCsrfProtection, asyncHandler(admin.updateAppointment));
 

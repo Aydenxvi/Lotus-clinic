@@ -65,13 +65,16 @@
         </div>
         <button class="btn ghost" id="logout">Выйти</button>
       </div>
-      <p class="lead" style="margin-top:14px">Здесь — ваши реальные записи из базы данных клиники. Анализы, снимки и чат с лечащим врачом появятся в следующих обновлениях.</p>
+      <p class="lead" style="margin-top:14px">Здесь — ваши записи и история завершённых консультаций из базы данных клиники. Данные в публичной версии предназначены только для демонстрации.</p>
       <div class="grid-3" style="margin:24px 0" id="dash-stats"></div>
       <div class="section-head">
         <h2>Мои записи</h2>
         <a class="btn ghost" href="appointment.html">Новая запись</a>
       </div>
       <div id="visits" class="grid-2" style="margin-top:16px"></div>
+      <div class="section-head" style="margin-top:34px"><h2>Моя история лечения</h2></div>
+      <p class="muted">Заключения врача, препараты и направления на анализы по завершённым приёмам.</p>
+      <div id="care-history" class="grid-2" style="margin-top:16px"></div>
     </section>
   </main>
   <div id="site-footer"></div>
@@ -87,6 +90,9 @@
 
     function showAuth(tab) {
       $("dash-view").hidden = true;
+      // Clear previously rendered sensitive records after logout.
+      $("visits").replaceChildren();
+      $("care-history").replaceChildren();
       $("auth-view").hidden = false;
       setTab(tab || "login");
     }
@@ -187,6 +193,35 @@
         dt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
     }
     const STATUS_LABEL = { pending: "Ожидает", confirmed: "Подтверждён", completed: "Завершён", cancelled: "Отменён", no_show: "Не пришёл" };
+    function safeText(value) {
+      return String(value == null ? "" : value).replace(/[&<>"']/g, char =>
+        ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[char]);
+    }
+    function displayText(value) { return safeText(value || "Не указано").replace(/\r?\n/g, "<br>"); }
+    async function renderCareHistory() {
+      const host = $("care-history");
+      host.innerHTML = `<p class="muted">Загружаем историю лечения…</p>`;
+      try {
+        const result = await lotusApi("/patients/me/consultations");
+        const consultations = result.consultations || [];
+        host.innerHTML = consultations.length ? consultations.map(c => `
+          <article class="panel" style="min-width:0">
+            <span class="adm-badge neutral">${safeText(fmt(c.scheduledAt || c.createdAt))}</span>
+            <h3 style="margin:12px 0 4px">${safeText(c.doctor?.name || "Лечащий врач")}</h3>
+            <p class="muted">${safeText(c.doctor?.title || "")}</p>
+            <div style="margin:12px 0"><b>Диагноз</b><p>${displayText([c.icd10Code,c.icd10Name].filter(Boolean).join(" · "))}</p></div>
+            <div style="margin:12px 0"><b>Рекомендации</b><p>${displayText(c.treatmentNote)}</p></div>
+            <div style="margin:12px 0"><b>Назначенные препараты</b>
+              ${(c.prescriptions || []).length ? `<ul style="padding-left:18px">${c.prescriptions.map(rx => `<li style="margin:8px 0"><b>${safeText(rx.name)}</b> — ${safeText(rx.dosage)}${rx.frequency ? ` · ${safeText(rx.frequency)}` : ""}${rx.duration ? ` · ${safeText(rx.duration)}` : ""}${rx.instructions ? `<div class="muted">${displayText(rx.instructions)}</div>` : ""}</li>`).join("")}</ul>` : `<p class="muted">Нет назначений</p>`}
+            </div>
+            <div><b>Лабораторные направления</b>
+              ${(c.labOrders || []).length ? `<ul style="padding-left:18px">${c.labOrders.map(l => `<li>${safeText(l.test)} — ${safeText(l.status)}</li>`).join("")}</ul>` : `<p class="muted">Нет направлений</p>`}
+            </div>
+          </article>`).join("") : `<p class="muted">Завершённых консультаций пока нет.</p>`;
+      } catch (error) {
+        host.textContent = "Не удалось загрузить историю лечения: " + (error.message || error);
+      }
+    }
 
     async function renderDash() {
       $("visits").innerHTML = `<p class="muted">Загружаем ваши записи…</p>`;
@@ -195,10 +230,10 @@
         const res = await lotusApi("/appointments/me");
         appointments = res.appointments || [];
       } catch (e) {
-        $("visits").innerHTML = `<p class="muted">Не удалось загрузить записи: ${e.message}</p>`;
+        $("visits").innerHTML = `<p class="muted">Не удалось загрузить записи: ${safeText(e.message || e)}</p>`;
         return;
       }
-      const upcoming = appointments.filter(a => a.status !== "cancelled" && a.status !== "completed");
+      const upcoming = appointments.filter(a => ["pending", "confirmed"].includes(a.status));
       const next = upcoming.slice().sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))[0];
 
       $("dash-stats").innerHTML = `
@@ -212,9 +247,9 @@
         ? appointments.map(a => `
           <article class="panel stagger-item" data-id="${a.id}">
             <span class="adm-badge ${a.status === "cancelled" ? "bad" : a.status === "completed" ? "neutral" : "warn"}">${STATUS_LABEL[a.status] || a.status}</span>
-            <h3 style="margin-top:10px">${a.doctor ? a.doctor.name : "Врач"}</h3>
-            <p class="muted">${a.doctor ? a.doctor.title : ""} · ${fmt(a.scheduledAt)}</p>
-            <p>${a.reason || "Без комментария"}</p>
+            <h3 style="margin-top:10px">${safeText(a.doctor ? a.doctor.name : "Врач")}</h3>
+            <p class="muted">${safeText(a.doctor ? a.doctor.title : "")} · ${safeText(fmt(a.scheduledAt))}</p>
+            <p>${safeText(a.reason || "Без комментария")}</p>
             ${a.status !== "cancelled" && a.status !== "completed" ? `<button class="btn ghost" data-act="cancel">Отменить</button>` : ""}
           </article>`).join("")
         : `<p class="muted">Пока пусто. <a href="appointment.html">Запишитесь на приём</a>.</p>`;
@@ -232,6 +267,7 @@
           b.disabled = false; b.textContent = "Отменить";
         }
       }));
+      await renderCareHistory();
     }
 
     const session = await window.lotusSession;

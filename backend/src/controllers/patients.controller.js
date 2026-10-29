@@ -52,9 +52,17 @@ async function myMedicalRecord(req, res) {
 async function myConsultations(req, res) {
   const id = requirePatientId(req);
   const consultations = await prisma.consultation.findMany({
-    where: { patientId: id },
-    include: { doctor: true },
-    orderBy: { createdAt: "desc" }
+    where: { patientId: id, appointment: { status: "completed" } },
+    include: {
+      doctor: { select: { id: true, name: true, title: true } },
+      prescriptions: { orderBy: { position: "asc" } },
+      appointment: {
+        select: { scheduledAt: true,
+          labOrders: { select: { test: true, status: true } }
+        }
+      }
+    },
+    orderBy: { createdAt: "desc" }, take: 100
   });
   await req.audit("view_own_consultations", "patient", id);
   res.json({
@@ -65,7 +73,14 @@ async function myConsultations(req, res) {
       icd10Name: c.icd10Name,
       treatmentNote: c.treatmentNote,
       createdAt: c.createdAt.toISOString(),
-      doctor: { id: c.doctor.id, name: c.doctor.name, title: c.doctor.title }
+      scheduledAt: c.appointment.scheduledAt.toISOString(),
+      doctor: c.doctor,
+      prescriptions: c.prescriptions.map(p => ({
+        id: p.id.toString(), name: p.name, dosage: p.dosage,
+        frequency: p.frequency, duration: p.duration,
+        instructions: p.instructions
+      })),
+      labOrders: c.appointment.labOrders.map(l => ({ test: l.test, status: l.status }))
     }))
   });
 }

@@ -839,67 +839,123 @@
     function closeModal() { if (modal.open) modal.close(); }
     modal.addEventListener("click", (e) => { if (e.target === modal || e.target.closest("[data-close]")) closeModal(); });
 
-    function endModal(item) {
-      /* Интерфейс приёма (ЭМК): анамнез, диагноз по МКБ-10, назначение лечения,
-         направления на анализы — только по карте текущего пациента врача. */
+    /* One encounter: diagnosis, structured medicines and lab referrals are
+       saved on the server. A draft can be reopened; completed entries are locked. */
+    function prescriptionRow(m = {}) {
+      return `<div class="rx-entry" style="border:1px solid var(--border,#e5def4);border-radius:12px;padding:12px;margin:9px 0;background:var(--bg-2,#faf8ff)">
+        <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:9px">
+          <label>Препарат<input class="rx-name" list="rx-catalog" maxlength="190" placeholder="Название" value="${esc(m.name || "")}"></label>
+          <label>Дозировка<input class="rx-dosage" maxlength="120" placeholder="Например: 1 таблетка" value="${esc(m.dosage || "")}"></label>
+          <label>Частота<input class="rx-frequency" maxlength="120" placeholder="Например: 2 раза в день" value="${esc(m.frequency || "")}"></label>
+          <label>Длительность<input class="rx-duration" maxlength="120" placeholder="Например: 5 дней" value="${esc(m.duration || "")}"></label>
+        </div>
+        <label>Дополнительные инструкции<input class="rx-instructions" maxlength="500" placeholder="Условия приёма (необязательно)" value="${esc(m.instructions || "")}"></label>
+        <button type="button" class="btn ghost rx-remove" style="margin-top:6px">Убрать препарат</button>
+      </div>`;
+    }
+
+    async function endModal(item) {
       openModal(`<form method="dialog" id="end-form">
-        <h3>Приём пациента · ЭМК</h3>
-        <p class="muted">${esc(item.patient.name)} · ${item.time}</p>
+        <h3>Консультация пациента · ЭМК</h3>
+        <p class="muted">${esc(item.patient.name)} · ${esc(item.time)} · данные сохраняются в MySQL</p>
+        <p class="muted" id="consult-load-note">Загружаем черновик…</p>
         <label>Жалобы / анамнез
-          <textarea rows="2" id="end-anamnesis" placeholder="Жалобы, анамнез заболевания">${esc(item.anamnesis || "")}</textarea></label>
+          <textarea rows="2" id="end-anamnesis" maxlength="5000" placeholder="Жалобы и анамнез заболевания"></textarea></label>
         <label>Диагноз (МКБ-10)
-          <input id="end-icd" list="icd10-list" placeholder="Начните вводить код или диагноз" value="${esc(item.icd10 || "")}">
+          <input id="end-icd" list="icd10-list" placeholder="Код или код — описание">
         </label>
         <datalist id="icd10-list">${ICD10.map(([code,name]) => `<option value="${esc(code)} — ${esc(name)}">`).join("")}</datalist>
         <label>Лечение и рекомендации
-          <textarea rows="3" id="end-note" placeholder="Назначения, дозировки, рекомендации">${esc(item.note || "")}</textarea></label>
-        <label style="margin-bottom:6px">Направление на анализы (необязательно)</label>
+          <textarea rows="3" id="end-note" maxlength="5000" placeholder="Рекомендации пациенту"></textarea></label>
+        <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin:12px 0 5px">
+          <strong>Назначенные препараты</strong>
+          <button type="button" class="btn ghost" id="rx-add">+ Добавить препарат</button>
+        </div>
+        <div id="rx-list"></div>
+        <datalist id="rx-catalog">${pharmacy.filter(p=>p.qty>0).map(p=>`<option value="${esc(p.name)}">`).join("")}</datalist>
+        <p class="muted" style="font-size:12px;margin:2px 0 15px">Назначение не списывает препарат со склада. Выдача оформляется отдельно через раздел «Аптека».</p>
+        <label style="margin-bottom:6px">Направления на анализы</label>
         <div style="display:grid;gap:6px;margin:0 0 16px">
           ${LAB_REFERRAL_TESTS.map(t => `<label style="display:flex;flex-direction:row;align-items:center;gap:8px;margin:0;font-weight:500">
             <input type="checkbox" value="${esc(t)}" class="end-lab-ref" style="width:auto;margin:0"> ${esc(t)}</label>`).join("")}
         </div>
-        <div class="row">
+        <p class="muted" style="font-size:12px">После завершения приём будет закрыт для редактирования. Используй вымышленные демо-данные.</p>
+        <div class="row" style="flex-wrap:wrap">
           <button type="button" class="btn ghost" data-close>Отмена</button>
-          <button type="submit" class="btn gold">Завершить приём</button>
+          <button type="submit" class="btn ghost" data-complete="false" disabled>Сохранить черновик</button>
+          <button type="submit" class="btn gold" data-complete="true" disabled>Завершить приём</button>
         </div></form>`);
-      $("end-form").addEventListener("submit", async (e) => {
+      const form = $("end-form");
+      const list = $("rx-list");
+      $("rx-add").addEventListener("click", () => {
+        if (list.querySelectorAll(".rx-entry").length >= 12) {
+          notify("Можно добавить не более 12 препаратов"); return;
+        }
+        list.insertAdjacentHTML("beforeend", prescriptionRow());
+      });
+      list.addEventListener("click", e => {
+        if (e.target.closest(".rx-remove")) e.target.closest(".rx-entry").remove();
+      });
+      try {
+        const data = await lotusApi("/doctor/appointments/" + encodeURIComponent(item.id) + "/consultation");
+        if (!form.isConnected) return;
+        if (data.consultation) {
+          const c = data.consultation;
+          $("end-anamnesis").value = c.anamnesis || "";
+          $("end-icd").value = [c.icd10Code, c.icd10Name].filter(Boolean).join(" — ");
+          $("end-note").value = c.treatmentNote || "";
+          list.innerHTML = (c.prescriptions || []).map(prescriptionRow).join("");
+        }
+        const tests = new Set((data.labOrders || []).map(l => l.test));
+        form.querySelectorAll(".end-lab-ref").forEach(el => { el.checked = tests.has(el.value); });
+        if (!list.children.length) list.innerHTML = prescriptionRow();
+        $("consult-load-note").textContent = data.consultation ? "Черновик загружен" : "Новая консультация";
+        form.querySelectorAll("button[type=submit]").forEach(b => { b.disabled = data.status === "completed"; });
+      } catch (ex) {
+        if (form.isConnected) $("consult-load-note").textContent = "Ошибка загрузки: " + (ex.message || ex);
+        return;
+      }
+      form.addEventListener("submit", async e => {
         e.preventDefault();
-        const submitBtn = e.target.querySelector("button[type=submit]");
-        const anamnesis = $("end-anamnesis").value.trim();
-        const icdRaw = $("end-icd").value.trim();
-        const note = $("end-note").value.trim();
-        const icdMatch = icdRaw.match(/^(\S+)\s+—\s+(.+)$/);
-        const icd10Code = icdMatch ? icdMatch[1] : (icdRaw || undefined);
-        const icd10Name = icdMatch ? icdMatch[2] : undefined;
-        submitBtn.disabled = true; submitBtn.textContent = "Сохраняем…";
+        const complete = e.submitter?.dataset.complete !== "false";
+        const buttons = [...form.querySelectorAll("button[type=submit]")];
+        const raw = $("end-icd").value.trim();
+        const match = raw.match(/^(\S+)\s+—\s+(.+)$/);
+        const medications = [];
+        for (const row of list.querySelectorAll(".rx-entry")) {
+          const get = (cls) => row.querySelector(cls).value.trim();
+          const p = { name: get(".rx-name"), dosage: get(".rx-dosage"),
+            frequency: get(".rx-frequency"), duration: get(".rx-duration"),
+            instructions: get(".rx-instructions") };
+          if (!Object.values(p).some(Boolean)) continue;
+          if (!p.name || !p.dosage) { notify("Для каждого препарата укажи название и дозировку"); return; }
+          medications.push(p);
+        }
+        const labs = Array.from(form.querySelectorAll(".end-lab-ref:checked")).map(cb => cb.value);
+        const input = {
+          appointmentId: item.id,
+          anamnesis: $("end-anamnesis").value.trim(),
+          icd10Code: match ? match[1] : raw,
+          icd10Name: match ? match[2] : "",
+          treatmentNote: $("end-note").value.trim(),
+          prescriptions: medications, labTests: labs, markCompleted: complete
+        };
+        if (complete && !input.anamnesis && !input.icd10Code && !input.treatmentNote && !medications.length && !labs.length) {
+          notify("Заполни хотя бы одно клиническое поле перед завершением приёма"); return;
+        }
+        buttons.forEach(b => b.disabled = true);
         try {
-          // ЭМК теперь пишется в настоящую БД: POST /api/doctor/consultations
-          // создаёт запись consultations (anamnesis/МКБ-10/назначения) и
-          // атомарно переводит сам приём в статус completed — это тот же
-          // сервер, который проверяет, что приём действительно на расписании
-          // этого врача (403, если нет).
-          const refs = Array.from(document.querySelectorAll(".end-lab-ref:checked")).map(cb => cb.value);
-          await lotusApi("/doctor/consultations", {
-            method: "POST",
-            body: {
-              appointmentId: item.id, anamnesis: anamnesis || undefined,
-              icd10Code, icd10Name, treatmentNote: note || undefined,
-              labTests: refs, markCompleted: true
-            }
-          });
-          item.status = "done"; item.anamnesis = anamnesis; item.icd10 = icdRaw; item.note = note;
-          // Clinical note and referrals are committed together by the API.
-          try {
-            labQueue = (await lotusApi("/doctor/labs")).orders || [];
-          } catch (refreshError) {
-            notify("Направления сохранены; не удалось обновить список: " + (refreshError.message || refreshError));
-          }
+          await lotusApi("/doctor/consultations", { method: "POST", body: input });
+          if (complete) item.status = "done";
+          item.anamnesis = input.anamnesis; item.icd10 = raw; item.note = input.treatmentNote;
+          try { labQueue = (await lotusApi("/doctor/labs")).orders || []; }
+          catch (refreshError) { notify("Сохранено; список анализов обновится позже"); }
           closeModal();
           if (section === "dashboard") renderDashboard(); else renderScheduleList();
-          notify("Приём завершён: " + item.patient.name + (refs.length ? " · направлений в лабораторию: " + refs.length : ""));
+          notify(complete ? "Приём завершён, рекомендации сохранены" : "Черновик консультации сохранён");
         } catch (ex) {
-          notify("Не удалось сохранить приём: " + (ex.message || ex));
-          submitBtn.disabled = false; submitBtn.textContent = "Завершить приём";
+          notify("Не удалось сохранить: " + (ex.message || ex));
+          buttons.forEach(b => b.disabled = false);
         }
       });
     }
@@ -943,6 +999,10 @@
                 <div><div class="muted" style="font-size:13px;margin-bottom:4px">Жалобы и анамнез</div><div style="overflow-wrap:anywhere;white-space:normal">${lines(c.anamnesis)}</div></div>
                 <div><div class="muted" style="font-size:13px;margin-bottom:4px">Диагноз (МКБ-10)</div><div style="overflow-wrap:anywhere">${plain(diagnosis)}</div></div>
                 <div><div class="muted" style="font-size:13px;margin-bottom:4px">Лечение и рекомендации</div><div style="overflow-wrap:anywhere">${lines(c.treatmentNote)}</div></div>
+                <div><div class="muted" style="font-size:13px;margin-bottom:4px">Препараты</div>
+                  ${(c.prescriptions || []).length ? `<ul style="margin:6px 0;padding-left:20px">${c.prescriptions.map(rx => `<li style="margin:6px 0;overflow-wrap:anywhere"><b>${plain(rx.name)}</b> — ${plain(rx.dosage)}${rx.frequency ? ` · ${plain(rx.frequency)}` : ""}${rx.duration ? ` · ${plain(rx.duration)}` : ""}${rx.instructions ? `<div class="muted">${lines(rx.instructions)}</div>` : ""}</li>`).join("")}</ul>` : `<span class="muted">Назначений нет</span>`}</div>
+                <div><div class="muted" style="font-size:13px;margin-bottom:4px">Лаборатория</div>
+                  ${(c.labOrders || []).length ? `<ul style="margin:6px 0;padding-left:20px">${c.labOrders.map(l => `<li>${plain(l.test)} — ${plain(l.status)}</li>`).join("")}</ul>` : `<span class="muted">Направлений нет</span>`}</div>
               </div>
             </article>`;
           }).join("")
@@ -957,6 +1017,15 @@
           <div class="metric"><span>Аллергии</span><b style="overflow-wrap:anywhere">${plain(rec && rec.allergies)}</b></div>
           <div class="metric"><span>Хронические состояния</span><b style="overflow-wrap:anywhere">${plain(rec && rec.chronicConditions)}</b></div>
         </div>
+        <details style="padding:12px;border:1px solid var(--border,#e5def4);border-radius:12px;margin:12px 0 20px">
+          <summary style="cursor:pointer;font-weight:650">Редактировать медицинские сведения</summary>
+          <form id="medical-record-form" style="margin-top:12px">
+            <label>Группа крови<input id="rec-blood" maxlength="10" value="${plain(rec && rec.bloodType, "")}"></label>
+            <label>Аллергии<textarea id="rec-allergies" rows="2" maxlength="2000">${plain(rec && rec.allergies, "")}</textarea></label>
+            <label>Хронические состояния<textarea id="rec-chronic" rows="2" maxlength="2000">${plain(rec && rec.chronicConditions, "")}</textarea></label>
+            <button type="submit" class="btn gold">Сохранить сведения</button>
+          </form>
+        </details>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <h4 style="margin:0">История консультаций</h4>
           <span class="muted">Записей: ${sorted.length}</span>
@@ -965,6 +1034,26 @@
         <p class="muted" style="font-size:12px;margin-top:10px">Доступ к истории ограничен пациентами данного врача. Медицинские сведения хранятся на сервере.</p>
         <div class="row"><button class="btn gold" data-close>Закрыть</button></div>
       </div>`);
+      $("medical-record-form").addEventListener("submit", async e => {
+        e.preventDefault();
+        const button = e.target.querySelector("button[type=submit]");
+        button.disabled = true;
+        try {
+          await lotusApi("/doctor/patients/" + encodeURIComponent(item.patient.id) + "/medical-record", {
+            method: "PATCH",
+            body: {
+              bloodType: $("rec-blood").value.trim() || null,
+              allergies: $("rec-allergies").value.trim() || null,
+              chronicConditions: $("rec-chronic").value.trim() || null
+            }
+          });
+          notify("Медкарта обновлена");
+          await historyModal(item);
+        } catch (error) {
+          notify("Не удалось сохранить медицинские сведения: " + (error.message || error));
+          button.disabled = false;
+        }
+      });
     }
 
 
@@ -1244,44 +1333,44 @@
     }
 
     /* ============================================================
-       РАЗДЕЛ: Лечение (сводка назначений по всей клинике)
+       РАЗДЕЛ: Лечение — реальная сводка из консультаций и назначений
        ============================================================ */
-    /* Раньше эта сводка собиралась, пробегая по локальному объекту STAFF и
-       вызывая loadSchedule() синхронно для КАЖДОГО сотрудника — заглядывая в
-       расписание каждого коллеги через общий localStorage. Настоящий бэкенд
-       не разрешает врачу читать чужое расписание напрямую (RBAC: /api/doctor/*
-       видит только своих пациентов); эта клиническая сводка «по всей
-       клинике» доступна только главному врачу и идёт через отдельный,
-       админский эндпоинт — GET /api/admin/appointments. ИНН/детали консультации
-       (МКБ-10, назначения) этот список не отдаёт, поэтому эти колонки убраны —
-       они не показывались бы данными, которых нет. */
-    async function renderTreatment() {
+    async function renderTreatment(days = 7) {
       if (!requireChief()) return;
       const c = $("adm-content");
       c.innerHTML = `
-        <div class="adm-section-head"><h2>Текущее лечение пациентов</h2></div>
-        <p class="muted" style="margin-top:-6px">Сводка по всей клинике за сегодня — доступна только главному врачу.</p>
+        <div class="adm-section-head"><h2>Лечение пациентов</h2></div>
+        <p class="muted">Сводка консультаций по клинике · только главный врач · демо-данные.</p>
+        <label style="max-width:240px">Период
+          <select id="treat-days"><option value="1">24 часа</option><option value="7">7 дней</option><option value="30">30 дней</option></select>
+        </label>
         <div class="adm-grid" id="treat-tiles"></div>
         <div class="adm-table-wrap" id="treat-table"><p class="muted" style="padding:16px">Загружаем…</p></div>`;
-      const start = new Date(); start.setHours(0, 0, 0, 0);
-      const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-      let appts = [];
+      $("treat-days").value = String(days);
+      $("treat-days").addEventListener("change", e => renderTreatment(Number(e.target.value)));
       try {
-        const res = await lotusApi("/admin/appointments?from=" + encodeURIComponent(start.toISOString()) + "&to=" + encodeURIComponent(end.toISOString()));
-        appts = res.appointments || [];
-      } catch (e) {
-        $("treat-table").innerHTML = `<p class="muted" style="padding:16px">Не удалось загрузить данные: ${esc(e.message || e)}</p>`;
-        return;
+        const result = await lotusApi("/admin/treatment?days=" + days);
+        if (!$("treat-tiles") || section !== "treatment") return;
+        const t = result.totals;
+        $("treat-tiles").innerHTML = [
+          ["◷", "Ожидают приёма", t.pending], ["✚", "Приёмов завершено", t.completed],
+          ["▤", "Оформлено консультаций", t.documented], ["◈", "Всего записей", t.appointments]
+        ].map(([ic,label,n]) => tile(ic,label,n)).join("");
+        lotusAnimateList($("treat-tiles")); animateCountUp($("treat-tiles"));
+        const rows = result.rows || [];
+        $("treat-table").innerHTML = rows.length ? crudTableFull(
+          ["Пациент", "Врач", "Время", "Диагноз", "Препараты", "Анализы", "Статус"],
+          rows.map(r => [esc(r.patient), esc(r.doctor),
+            esc(new Date(r.scheduledAt).toLocaleString("ru-RU")),
+            esc(r.diagnosis || (r.hasConsultation ? "Без диагноза" : "Не оформлено")),
+            String(r.medications), String(r.labs),
+            badge(r.status === "completed" ? "good" : "warn", r.status === "completed" ? "Завершён" : r.status)
+          ])
+        ) + (result.truncated ? `<p class="muted" style="padding:12px">Показаны первые 500 записей.</p>` : "")
+          : `<p class="muted" style="padding:16px">Приёмов за выбранный период нет.</p>`;
+      } catch (error) {
+        if ($("treat-table")) $("treat-table").innerHTML = `<p class="muted" style="padding:16px">Ошибка загрузки: ${esc(error.message || error)}</p>`;
       }
-      const finished = appts.filter(a => a.status === "completed");
-      const waiting = appts.filter(a => a.status === "pending" || a.status === "confirmed");
-      $("treat-tiles").innerHTML = [["◷", "Ожидают приёма", waiting.length], ["✚", "Приёмов завершено", finished.length], ["◈", "Записей за сегодня", appts.length]].map(([ic, label, n]) => tile(ic, label, n)).join("");
-      lotusAnimateList($("treat-tiles"));
-      animateCountUp($("treat-tiles"));
-      $("treat-table").innerHTML = finished.length ? crudTableFull(
-        ["Пациент", "Телефон", "Повод обращения", "Статус", "Врач"],
-        finished.map(a => [esc([a.patient.firstName, a.patient.lastName].filter(Boolean).join(" ")), esc(a.patient.phone || "—"), esc(a.reason || "—"), badge("good", "Завершён"), esc(a.doctor.name)])
-      ) : `<p class="muted" style="padding:16px">Завершённых приёмов сегодня пока нет.</p>`;
     }
     function crudTableFull(cols, rows) {
       return `<table class="adm-table"><thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead>

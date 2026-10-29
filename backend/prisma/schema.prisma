@@ -245,6 +245,7 @@ model Consultation {
   treatmentNote  String?  @db.Text
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  prescriptions  Prescription[]
 
   @@index([patientId])
   @@index([doctorId])
@@ -379,4 +380,22 @@ model PharmacyIssue {
   @@index([doctorId, createdAt])
   @@index([itemId, createdAt])
   @@map("pharmacy_issues")
+}
+
+// Structured medications prescribed during a consultation.
+// Portfolio demonstration: these are not electronic prescriptions or dispensing orders.
+model Prescription {
+  id             BigInt       @id @default(autoincrement())
+  consultationId BigInt
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  name           String       @db.VarChar(190)
+  dosage         String       @db.VarChar(120)
+  frequency      String?      @db.VarChar(120)
+  duration       String?      @db.VarChar(120)
+  instructions   String?      @db.VarChar(500)
+  position       Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  @@index([consultationId, position])
+  @@map("prescriptions")
 }
