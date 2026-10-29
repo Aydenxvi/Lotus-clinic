@@ -29,38 +29,49 @@
     document.head.appendChild(m);
   }
 
-  /* ---------- Авторизация пациента (демо, localStorage) ---------- */
-  const PATIENT_SESSION_KEY = "lotus-patient";
-  function currentPatient() {
-    try {
-      const id = sessionStorage.getItem(PATIENT_SESSION_KEY);
-      if (!id) return null;
-      const all = JSON.parse(localStorage.getItem("lotus-patients") || "{}");
-      return all[id] || null;
-    } catch (e) {
-      return null;
-    }
-  }
-  window.lotusCurrentPatient = currentPatient;
-
+  /* ---------- Patient navigation: use the real backend session ----------
+     Staff login is intentionally separate. Never read legacy localStorage demo
+     accounts to decide whether the current visitor is authenticated. */
   function authLinksHtml() {
-    const patient = currentPatient();
-    return patient
-      ? `<a href="cabinet.html" data-page="cabinet.html">Кабинет · ${patient.firstName || "Пациент"}</a>`
-      : `<a href="cabinet.html?auth=login" data-page="cabinet.html" data-auth="login">Войти</a>
-         <a href="cabinet.html?auth=register" data-page="cabinet.html" data-auth="register">Регистрация</a>`;
+    return `<a href="cabinet.html?auth=login" data-auth-nav="login" data-page="cabinet.html">Войти</a>
+            <a href="cabinet.html?auth=register" data-auth-nav="register" data-page="cabinet.html">Регистрация</a>`;
   }
-  /* Вызывается из cabinet.html сразу после входа/регистрации/выхода,
-     чтобы верхнее меню обновилось без перезагрузки страницы. */
-  window.lotusRefreshAuthNav = function () {
+
+  function renderAuthNav(user) {
     const host = document.querySelector("#site-header .nav-links");
     if (!host) return;
-    host.querySelectorAll("[data-auth], a[href^='cabinet.html']").forEach((a) => a.remove());
+    host.querySelectorAll("[data-auth-nav]").forEach((node) => node.remove());
     const staffLink = host.querySelector("[data-staff-link]");
-    const wrap = document.createElement("span");
-    wrap.innerHTML = authLinksHtml();
-    const nodes = Array.from(wrap.childNodes);
-    nodes.forEach((n) => host.insertBefore(n, staffLink || null));
+    function createLink(href, label, type) {
+      const link = document.createElement("a");
+      link.href = href;
+      link.textContent = label; // never interpolate user-provided names into HTML
+      link.dataset.authNav = type;
+      link.dataset.page = "cabinet.html";
+      if (path === "cabinet.html") link.setAttribute("aria-current", "page");
+      host.insertBefore(link, staffLink || null);
+    }
+    if (user && user.role === "patient" && user.patient) {
+      const name = String(user.patient.firstName || "Пациент").slice(0, 35);
+      createLink("cabinet.html", "Кабинет · " + name, "cabinet");
+    } else {
+      createLink("cabinet.html?auth=login", "Войти", "login");
+      createLink("cabinet.html?auth=register", "Регистрация", "register");
+    }
+  }
+
+  let navRefreshSequence = 0;
+  window.lotusRefreshAuthNav = async function () {
+    const request = ++navRefreshSequence;
+    if (typeof window.lotusApi !== "function") return;
+    let user = null;
+    try {
+      const result = await window.lotusApi("/auth/me");
+      user = result && result.user;
+    } catch (e) {
+      // A guest or an offline demo visitor should always see the sign-in links.
+    }
+    if (request === navRefreshSequence) renderAuthNav(user);
   };
 
   const header = document.getElementById("site-header");
@@ -83,7 +94,7 @@
           </div>
           <div class="nav-actions">
             <button class="icon-btn burger" id="burger" type="button" aria-label="Открыть меню" aria-controls="nav-links" aria-expanded="false">${window.lotusIcon('menu')}</button>
-            <button class="icon-btn theme-btn" id="theme" type="button" aria-label="Сменить тему">◐</button>
+            <button class="icon-btn theme-btn" id="theme" type="button" aria-label="Включить тёмную тему" aria-pressed="false" title="Переключить тему">◐</button>
             <a class="btn gold nav-book" href="appointment.html">Записаться ${window.lotusIcon('arrow')}</a>
           </div>
         </div>
@@ -120,51 +131,83 @@
           </div>
         </div>
         <div class="wrap footer-legal">
-          <span>© ${new Date().getFullYear()} ${B.name}. Все права защищены.</span>
+          <span>© ${new Date().getFullYear()} ${B.name}. Демонстрационный проект: не вводите настоящие медицинские данные.</span>
           <span><a href="contacts.html">Контакты и обратная связь</a></span>
         </div>
       </footer>
       <button class="sos" id="sos" type="button" aria-label="Информация об экстренной помощи">${window.lotusIcon('phone')} SOS 24/7</button>
       <div class="chat">
-        <div class="chat-box" id="chat-box">
+        <div class="chat-box" id="chat-box" role="region" aria-label="Чат с цифровым координатором">
           <div class="chat-head">
             <span class="chat-avatar" aria-hidden="true">✿</span>
             <div class="chat-head-text"><b>Флора</b><span class="chat-status"><span class="pulse-dot"></span>цифровой координатор «Lotus Clinic»</span></div>
             <button class="icon-btn chat-close" id="chat-close" type="button" aria-label="Закрыть чат">×</button>
           </div>
-          <div class="chat-log" id="chat-log"></div>
+          <div class="chat-log" id="chat-log" role="log" aria-live="polite" aria-relevant="additions" aria-label="Сообщения чата"></div>
           <form class="chat-form" id="chat-form"><input id="chat-input" placeholder="Симптомы, отделение, запись…" autocomplete="off" aria-label="Сообщение"><button class="btn gold" type="submit" aria-label="Отправить">→</button></form>
         </div>
-        <button class="chat-toggle" id="chat-toggle" aria-label="Открыть чат с Флорой">${window.lotusIcon('chat')}</button>
+        <button class="chat-toggle" id="chat-toggle" type="button" aria-label="Открыть чат с Флорой" aria-expanded="false" aria-controls="chat-box">${window.lotusIcon('chat')}</button>
       </div>
       <div class="toast" id="toast" role="status"></div>`;
   }
 
-  /* Тема: светлая по умолчанию, тёмная — по кнопке */
+  /* Theme switch is keyboard accessible and reflects persisted state. */
   const root = document.documentElement;
+  const themeButton = document.getElementById("theme");
+  function updateThemeControl() {
+    if (!themeButton) return;
+    const isDark = root.getAttribute("data-theme") === "dark";
+    themeButton.setAttribute("aria-pressed", String(isDark));
+    themeButton.setAttribute("aria-label", isDark ? "Включить светлую тему" : "Включить тёмную тему");
+    themeButton.title = isDark ? "Светлая тема" : "Тёмная тема";
+  }
   try {
     if (localStorage.getItem("lotus-theme") === "dark") root.setAttribute("data-theme", "dark");
   } catch (e) {}
-  document.getElementById("theme")?.addEventListener("click", () => {
+  updateThemeControl();
+  themeButton?.addEventListener("click", () => {
     const toDark = root.getAttribute("data-theme") !== "dark";
     if (toDark) root.setAttribute("data-theme", "dark");
     else root.removeAttribute("data-theme");
     try {
       localStorage.setItem("lotus-theme", toDark ? "dark" : "light");
     } catch (e) {}
+    updateThemeControl();
   });
 
-  document.getElementById("burger")?.addEventListener("click", () => {
-    const links = document.getElementById("nav-links");
-    const btn = document.getElementById("burger");
-    const open = links?.classList.toggle("open") || false;
-    btn?.setAttribute("aria-expanded", String(open));
-    btn?.setAttribute("aria-label", open ? "Закрыть меню" : "Открыть меню");
+  /* Mobile menu: Escape, outside click, navigation and desktop resize. */
+  const menu = document.getElementById("nav-links");
+  const burger = document.getElementById("burger");
+  function setMenuOpen(open, restoreFocus = false) {
+    if (!menu || !burger) return;
+    menu.classList.toggle("open", open);
+    burger.setAttribute("aria-expanded", String(open));
+    burger.setAttribute("aria-label", open ? "Закрыть меню" : "Открыть меню");
+    if (restoreFocus) burger.focus();
+  }
+  burger?.addEventListener("click", () => setMenuOpen(!menu.classList.contains("open")));
+  menu?.addEventListener("click", (event) => {
+    if (event.target.closest("a")) setMenuOpen(false);
   });
-
+  document.addEventListener("pointerdown", (event) => {
+    if (menu?.classList.contains("open") && !event.target.closest("#site-header .nav")) {
+      setMenuOpen(false);
+    }
+  });
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 980 && menu?.classList.contains("open")) setMenuOpen(false);
+  });
   document.getElementById("sos")?.addEventListener("click", () => {
     toast("Экстренная линия: 103 или " + B.phone + ".");
   });
+
+  /* Async script api.js is loaded after app.js; by DOMContentLoaded its
+     session helper exists. Refresh the header whenever the backend is ready. */
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => window.lotusRefreshAuthNav(), { once: true });
+  } else {
+    queueMicrotask(() => window.lotusRefreshAuthNav());
+  }
 
   /* ---------- Флора — цифровой координатор «Lotus Clinic» ----------
      Простой движок на ключевых словах и подборе отделения по симптому
@@ -237,11 +280,25 @@
   }
 
   if (log) addMsg(GREETING, "bot");
-  document.getElementById("chat-toggle")?.addEventListener("click", () => {
-    document.getElementById("chat-box")?.classList.toggle("open");
-  });
-  document.getElementById("chat-close")?.addEventListener("click", () => {
-    document.getElementById("chat-box")?.classList.remove("open");
+  const chatButton = document.getElementById("chat-toggle");
+  const chatPanel = document.getElementById("chat-box");
+  function setChatOpen(open, restoreFocus = false) {
+    if (!chatButton || !chatPanel) return;
+    chatPanel.classList.toggle("open", open);
+    chatButton.setAttribute("aria-expanded", String(open));
+    chatButton.setAttribute("aria-label", open ? "Закрыть чат с Флорой" : "Открыть чат с Флорой");
+    if (open) document.getElementById("chat-input")?.focus();
+    else if (restoreFocus) chatButton.focus();
+  }
+  chatButton?.addEventListener("click", () => setChatOpen(!chatPanel?.classList.contains("open")));
+  document.getElementById("chat-close")?.addEventListener("click", () => setChatOpen(false, true));
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (chatPanel?.classList.contains("open")) {
+      setChatOpen(false, true);
+    } else if (menu?.classList.contains("open")) {
+      setMenuOpen(false, true);
+    }
   });
   document.getElementById("chat-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -297,13 +354,15 @@
   window.lotusAnimateList = function (container) {
     if (!container) return;
     const items = Array.from(container.children).filter((el) => !el.classList.contains("stagger-hl"));
+    const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     items.forEach((el, i) => {
+      if (reducedMotion) { el.classList.add("stagger-item", "in"); return; }
       el.classList.add("stagger-item");
       el.style.setProperty("--i", i);
       el.classList.remove("in");
       requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("in")));
     });
-    if (!container.querySelector(".stagger-hl")) {
+    if (!reducedMotion && window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches && !container.querySelector(".stagger-hl")) {
       const hl = document.createElement("div");
       hl.className = "stagger-hl";
       container.prepend(hl);
