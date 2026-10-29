@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Отделения — LOTUS CLINIC</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/redesign.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <main id="main" class="wrap section">
+    <div class="kicker">Наши отделения и направления лечения</div>
+    <h1>Отделения поликлиники</h1>
+    <p class="lead">Каждое направление — отдельная команда врачей и своя диагностика на месте.</p>
+    <input class="search" id="q" placeholder="Поиск по симптомам или названию отделения (например: боли в спине, терапевт, анализы)" style="margin-top:24px">
+    <div class="grid-2" id="list" style="margin-top:28px"></div>
+  </main>
+  <div id="site-footer"></div>
+  <script src="js/data.js"></script>
+  <script src="js/ui-icons.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/staff-link.js"></script>
+  <script>
+  lotusReady.then(function () {
+    const list = document.getElementById("list");
+    function render(items) {
+      list.innerHTML = items.map(d => `
+        <article class="dept stagger-item" id="${d.id}">
+          <div class="icon">${d.icon}</div>
+          <div class="kicker" style="margin-bottom:2px">${d.tag}</div>
+          <h2>${d.name}</h2>
+          <p class="muted">${d.desc}</p>
+          <div class="metric"><span>Ближайший приём</span><b>${d.wait}</b></div>
+          <div class="metric"><span>Часы работы</span><b>${d.hours}</b></div>
+          <div class="tags">${d.services.map(s => `<span class="chip">${s}</span>`).join("")}</div>
+          <div class="card-foot">
+            <a class="btn gold" href="appointment.html?dept=${d.id}">Записаться</a>
+            <a class="btn ghost" href="department.html?id=${d.id}">Подробнее</a>
+          </div>
+        </article>
+      `).join("") || `<p class="muted">Ничего не нашли. Попробуйте другое слово.</p>`;
+      lotusAnimateList(list);
+    }
+    render(LOTUS.departments);
+    document.getElementById("q").addEventListener("input", (e) => {
+      const q = e.target.value.trim();
+      if (!q) return render(LOTUS.departments);
+      render(LOTUS.departments.filter(d => lotusDeptMatch(d, q)));
+    });
+  });
+  </script>
+</body>
+</html>

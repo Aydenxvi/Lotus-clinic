@@ -1,0 +1,55 @@
+{
+  "name": "lotus-clinic-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LOTUS CLINIC backend API — Express + MySQL + Prisma",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "seed": "node prisma/seed.js",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@prisma/client": "5.20.0",
+    "argon2": "0.41.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "2.8.5",
+    "csrf-csrf": "3.0.6",
+    "dotenv": "16.4.5",
+    "express": "^4.22.3",
+    "express-mysql-session": "3.0.3",
+    "express-rate-limit": "7.4.0",
+    "express-session": "^1.19.0",
+    "helmet": "7.1.0",
+    "morgan": "^1.12.1",
+    "mysql2": "^3.24.6",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "prisma": "5.20.0",
+    "supertest": "7.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "overrides": {
+    "express-mysql-session": {
+      "mysql2": "$mysql2"
+    }
+  },
+  "allowScripts": {
+    "@prisma/client@5.20.0": true,
+    "@prisma/engines@5.20.0": true,
+    "prisma@5.20.0": true,
+    "argon2@0.41.1": true
+  }
+}

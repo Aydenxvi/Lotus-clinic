@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Кабинет врача — LOTUS CLINIC</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/redesign.css">
+  <style>
+    .dc-login{display:grid;grid-template-columns:1.1fr .9fr;gap:24px;margin-top:28px;align-items:start}
+    .dc-form label{display:block;margin-bottom:16px}
+    .dc-form input,.dc-modal input,.dc-modal select,.dc-modal textarea,
+    .adm-form-card input,.adm-form-card select,.adm-form-card textarea{width:100%;margin-top:6px}
+    .dc-pass{position:relative;display:block}
+    .dc-pass button{position:absolute;right:8px;top:50%;transform:translateY(-10%);background:none;border:0;color:var(--azura);cursor:pointer;font:inherit;font-size:15px;font-weight:700;padding:6px}
+    .dc-error{color:var(--rose);font-size:16px;min-height:24px;margin:0 0 10px}
+    .dc-demo{display:grid;gap:10px;margin-top:16px;position:relative}
+    .dc-demo button{display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;width:100%;
+      padding:14px 16px;border-radius:10px;cursor:pointer;font:inherit;color:inherit;position:relative;z-index:1;
+      background:transparent;border:1px solid var(--line);transition:transform .15s ease}
+    .dc-demo button:hover{border-color:var(--azura);transform:translateX(2px)}
+    .dc-demo small{color:var(--muted);display:block;font-size:15px}
+    .dc-who{display:flex;gap:14px;align-items:center}
+    .dc-filters{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px}
+    .dc-filters button{padding:8px 16px;border-radius:10px;cursor:pointer;font:inherit;font-weight:700;font-size:14px;color:var(--muted);
+      background:transparent;border:1px solid var(--line);transition:transform .15s ease}
+    .dc-filters button:hover{transform:translateY(-1px)}
+    .dc-filters button.on{background:var(--tangelo);border-color:var(--tangelo);color:var(--on-accent)}
+    .dc-list{display:grid;gap:10px}
+    .ward-doctor-select{width:100%;min-width:215px;max-width:340px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);font:inherit;font-size:14px;cursor:pointer}
+    .ward-doctor-select:focus-visible{outline:2px solid var(--azura);outline-offset:2px}
+    .dc-row{display:grid;grid-template-columns:84px 1fr auto;gap:16px;align-items:center;padding:14px 16px;border-radius:var(--radius);
+      background:var(--surface);border:1px solid var(--line)}
+    .dc-row.done{opacity:.7}
+    .dc-time{font-family:var(--font-d);font-weight:600;font-size:22px;line-height:1;color:var(--azura)}
+    .dc-time small{display:block;font-family:var(--font-b);font-weight:400;font-size:13px;color:var(--muted);margin-top:4px}
+    .dc-name{font-weight:700;font-size:16px}
+    .dc-status{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:700;margin-left:6px;vertical-align:middle}
+    .dc-status.pending{background:color-mix(in srgb,var(--tangelo) 20%,transparent);color:var(--tangelo-ink)}
+    .dc-status.done{background:var(--bg-2);color:var(--muted)}
+    .dc-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+    .dc-actions .btn{padding:8px 12px;font-size:14px}
+    .dc-actions .btn[disabled]{opacity:.35;cursor:not-allowed;transform:none}
+    .dc-modal{max-width:520px;width:calc(100% - 32px);border-radius:var(--radius);padding:28px;color:var(--text);
+      background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow)}
+    .dc-modal::backdrop{background:rgba(36,27,46,.55);backdrop-filter:blur(3px)}
+    .dc-modal h3{margin:0 0 6px}
+    .dc-modal label{display:block;margin:14px 0}
+    .dc-modal .row{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+    .dc-hist{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:10px}
+    .dc-hist li{padding:12px 14px;border-radius:10px;background:var(--bg-2);font-size:16px}
+    .dc-hist b{display:block;font-size:14px;color:var(--muted);font-weight:500;margin-bottom:3px}
+    .dc-warn{color:var(--rose)}
+    @media (max-width:820px){
+      .dc-login{grid-template-columns:1fr}
+      .dc-row{grid-template-columns:1fr}
+      .dc-actions{justify-content:flex-start}
+    }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+  <main id="main">
+
+    <!-- LOGIN -->
+    <section id="login-view" class="wrap section" hidden>
+      <div class="kicker">Для сотрудников</div>
+      <h1>Кабинет врача</h1>
+      <p class="lead" style="margin-top:14px">Рабочее место врача и администратора клиники. Доступные разделы зависят от вашей роли — войдите под своим логином и паролем.</p>
+      <div class="dc-login">
+        <form class="panel dc-form" id="login-form" autocomplete="off" novalidate>
+          <h3 style="margin-bottom:18px">Вход в систему</h3>
+          <label>Логин
+            <input name="username" id="u" required autocomplete="username">
+          </label>
+          <label>Пароль
+            <span class="dc-pass">
+              <input name="password" id="p" type="password" placeholder="••••••••" required autocomplete="current-password">
+              <button type="button" id="toggle-pass" aria-label="Показать пароль">показать</button>
+            </span>
+          </label>
+          <p class="dc-error" id="login-error" role="alert"></p>
+          <button class="btn gold" type="submit" style="width:100%">Войти</button>
+          <p class="muted" style="font-size:15px;margin:14px 0 0">Логин и пароль выдаёт главный врач при регистрации сотрудника в разделе «Персонал».</p>
+        </form>
+
+        <aside class="panel">
+          <h3>Вход защищён</h3>
+          <p class="muted">Пароль сотрудника проверяется на сервере (Argon2id-хеш в базе данных) и больше не хранится и не публикуется в коде сайта — в отличие от прежней демо-версии. Сессия выдаётся как защищённая HttpOnly-cookie, роль нельзя подменить на странице.</p>
+        </aside>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="dash-view" class="wrap" style="padding-top:28px" hidden>
+      <div class="admin-shell">
+        <aside class="adm-sidebar" id="adm-sidebar">
+          <div class="adm-brand">
+            <div data-logo-icon style="width:34px" aria-hidden="true"></div>
+            <div class="adm-brand-text"><b>LOTUS CLINIC</b><span>Панель клиники</span></div>
+          </div>
+          <nav class="adm-nav" id="adm-nav"></nav>
+          <div class="adm-sidebar-foot">
+            <div class="dc-who">
+              <div class="avatar" id="d-avatar"></div>
+              <div>
+                <div id="d-name" style="font-weight:700;font-size:15px"></div>
+                <div class="muted" id="d-title" style="font-size:13px"></div>
+              </div>
+            </div>
+            <span class="adm-badge" id="d-role-badge" style="display:inline-block;margin:10px 0"></span>
+            <button class="btn ghost" id="logout" style="width:100%">Выйти</button>
+          </div>
+        </aside>
+
+        <div class="adm-main">
+          <header class="adm-topbar">
+            <button class="icon-btn" id="sidebar-toggle" aria-label="Меню">☰</button>
+            <div class="adm-topbar-title" id="adm-title">Дашборд</div>
+            <div class="adm-topbar-right">
+              <span class="muted" id="d-date"></span>
+              <span class="adm-bell" title="Уведомления" aria-hidden="true">🔔</span>
+            </div>
+          </header>
+          <div class="adm-content" id="adm-content"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="dc-modal" id="modal"></dialog>
+
+  <div id="site-footer"></div>
+  <script src="js/data.js"></script>
+  <script src="js/ui-icons.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+  lotusReady.then(function () {
+    /* ---------- Учётные записи ----------
+       Раньше здесь был STAFF — объект, собранный на лету из открытых полей
+       login/pass/role в публичном js/data.js. Это означало, что НАСТОЯЩИЕ
+       пароли сотрудников уходили в браузер любого посетителя сайта. Теперь
+       вход идёт через настоящий сервер: POST /api/auth/login проверяет
+       Argon2id-хеш пароля в базе данных и выдаёт серверную сессию
+       (HttpOnly-cookie) — роль (`doctor` / `chief`) приходит от сервера и
+       не может быть подделана на странице. См. rbac-backend-blueprint.md —
+       то, что там описывалось как план, здесь уже реализовано в /backend. */
+    /* RBAC: роли и доступ разделов.
+       chief  — полный доступ (Персонал/Лаборатория/Кабинеты/Лечение/Аптека/Пациенты/Заявки).
+       doctor — Дашборд (свой), приём пациента (ЭМК) и выдача препаратов в Аптеке. */
+    const ROLE_LABELS = { chief: "Главный врач / Админ", doctor: "Врач · ограниченный доступ" };
+    const CHIEF_ONLY = ["staff", "lab", "ward", "treatment", "patients", "requests"];
+    const NAV_ITEMS = [
+      { sec: "dashboard",  icon: "▦", label: "Дашборд",      roles: ["chief", "doctor"] },
+      { sec: "staff",      icon: "◉", label: "Персонал",     roles: ["chief"] },
+      { sec: "lab",        icon: "▣", label: "Лаборатория",  roles: ["chief"] },
+      { sec: "ward",       icon: "⌂", label: "Кабинеты",     roles: ["chief"] },
+      { sec: "treatment",  icon: "✚", label: "Лечение",      roles: ["chief"] },
+      { sec: "pharmacy",   icon: "⚗", label: "Аптека",       roles: ["chief", "doctor"] },
+      { sec: "patients",   icon: "◈", label: "Пациенты",     roles: ["chief"] },
+      { sec: "requests",   icon: "✎", label: "Заявки на отгул", roles: ["chief"] }
+    ];
+
+    /* ЭМК (электронная медкарта) — приём пациента доступен врачу любой роли,
+       но только по СВОЕМУ текущему пациенту (items — личное расписание врача).
+       Список МКБ-10 — часто используемые коды для демо, не полный справочник ВОЗ. */
+    const ICD10 = [
+      ["J06.9","Острая инфекция верхних дыхательных путей неуточнённая"],
+      ["I10","Эссенциальная (первичная) гипертензия"],
+      ["I20.9","Стенокардия неуточнённая"],
+      ["I48","Фибрилляция и трепетание предсердий"],
+      ["I50.9","Сердечная недостаточность неуточнённая"],
+      ["G43.9","Мигрень неуточнённая"],
+      ["R42","Головокружение и неустойчивость"],
+      ["M54.5","Боль внизу спины"],
+      ["M51.1","Поражение межпозвоночных дисков поясничного отдела с радикулопатией"],
+      ["M17.9","Гонартроз неуточнённый"],
+      ["S83.5","Растяжение и разрыв передней крестообразной связки"],
+      ["E11.9","Сахарный диабет 2 типа без осложнений"],
+      ["E03.9","Гипотиреоз неуточнённый"],
+      ["K29.7","Гастрит неуточнённый"],
+      ["K59.1","Функциональная диарея"],
+      ["R10.4","Другие и неуточнённые боли в животе"],
+      ["C50.9","Злокачественное новообразование молочной железы неуточнённой локализации"],
+      ["C61","Злокачественное новообразование предстательной железы"],
+      ["J00","Острый назофарингит"],
+      ["J45.9","Астма неуточнённая"],
+      ["N94.6","Дисменорея неуточнённая"],
+      ["F41.1","Генерализованное тревожное расстройство"],
+      ["L30.9","Дерматит неуточнённый"]
+    ];
+    const LAB_REFERRAL_TESTS = ["Общий анализ крови","Биохимия (15 показателей)","ЭКГ с расшифровкой","УЗИ одного органа","ПЦР-тест","Онкомаркеры","МРТ/КТ","Гликированный гемоглобин"];
+
+    /* ---------- Helpers ---------- */
+    const $ = (id) => document.getElementById(id);
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const notify = (m) => (typeof toast === "function" ? toast(m) : console.log(m));
+    const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    let doctor = null, items = [], filter = "all", section = "dashboard";
+
+    /* ---------- Расписание врача ----------
+       Раньше расписание врача (loadSchedule) жило в localStorage и отдельно
+       «подмешивало» онлайн-записи пациентов (mergeVisits) из другого
+       localStorage-хранилища, потому что у записи с сайта и расписания врача
+       не было общего источника правды. Теперь и то, и другое — одна и та же
+       таблица appointments в базе данных: GET /api/doctor/schedule отдаёт
+       врачу его реальные приёмы (включая записи, сделанные пациентами через
+       сайт) напрямую из БД, подмешивать ничего не нужно. */
+    async function loadSchedule() {
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      try {
+        const res = await lotusApi("/doctor/schedule?days=1&from=" + encodeURIComponent(start.toISOString()));
+        const todayStr = start.toDateString();
+        return (res.appointments || [])
+          .filter((a) => new Date(a.scheduledAt).toDateString() === todayStr)
+          .map((a) => ({
+            id: a.id,
+            time: new Date(a.scheduledAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+            patient: {
+              id: a.patient.id,
+              name: [a.patient.firstName, a.patient.lastName].filter(Boolean).join(" ") || "Пациент",
+              phone: a.patient.phone || ""
+            },
+            reason: a.reason || "Без указанной причины",
+            status: a.status === "completed" ? "done" : "pending",
+            icd10: "", note: ""
+          }));
+      } catch (e) {
+        notify("Не удалось загрузить расписание: " + (e.message || e));
+        return [];
+      }
+    }
+
+    /* ============================================================
+       Данные админ-панели (localStorage, демо-уровень — без бэкенда).
+       ============================================================ */
+    const STAFF_KEY = "lotus-staff-directory";
+    const PHARM_KEY = "lotus-pharmacy-stock";
+    const LAB_KEY = "lotus-lab-queue";
+    const ROOMS_KEY = "lotus-rooms";
+    const PATIENTS_KEY = "lotus-patients";
+    const LEAVE_KEY = "lotus-leave-requests";
+    const ISSUE_KEY = "lotus-pharmacy-issues";
+
+    function loadStore(key, seedFn) {
+      try {
+        const saved = JSON.parse(localStorage.getItem(key));
+        if (saved) return saved;
+      } catch (e) {}
+      const seeded = seedFn();
+      try { localStorage.setItem(key, JSON.stringify(seeded)); } catch (e) {}
+      return seeded;
+    }
+    function saveStore(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+
+    const GENDER = { d0: "ж", d7: "м", d1: "м", d2: "м", d3: "м", d4: "м", d5: "ж", d6: "м", d8: "ж" };
+    const MOBILES = ["+996 555 10 20 30", "+996 700 22 11 09", "+996 501 44 55 66", "+996 772 65 43 21", "+996 555 90 12 34", "+996 700 77 88 99", "+996 501 33 22 11", "+996 772 15 25 35", "+996 555 60 61 62"];
+    function seedStaff() {
+      return LOTUS.doctors.map((d, i) => {
+        const parts = d.name.split(" ");
+        return {
+          id: "st-" + d.id,
+          firstName: parts[0],
+          lastName: parts.slice(1).join(" "),
+          role: d.title,
+          gender: GENDER[d.id] || "м",
+          email: d.id + "@lotos.kg",
+          mobile: MOBILES[i % MOBILES.length],
+          address: "г. Бишкек, ул. Масалиева 74",
+          idNum: "2026" + String(10000000 + i * 137).slice(0, 10),
+          dob: (2026 - 28 - d.exp) + "-0" + ((i % 9) + 1) + "-1" + (i % 8),
+          status: "Активен"
+        };
+      });
+    }
+    function seedPharmacy() {
+      const rows = [
+        ["Парацетамол 500мг табл.", "2027-05-01", "2025-05-01", 45, 120],
+        ["Амоксициллин 500мг капс.", "2026-11-20", "2024-11-20", 180, 0],
+        ["Ибупрофен 400мг табл.", "2027-02-15", "2025-02-15", 60, 85],
+        ["Лозартан 50мг табл.", "2026-12-01", "2024-12-01", 210, 0],
+        ["Метформин 850мг табл.", "2027-06-10", "2025-06-10", 150, 60],
+        ["Аторвастатин 20мг табл.", "2026-11-30", "2024-11-30", 240, 5],
+        ["Инсулин Гларгин, картридж", "2026-11-05", "2025-01-05", 980, 0],
+        ["Омепразол 20мг капс.", "2027-08-01", "2025-08-01", 70, 200],
+        ["Бисопролол 5мг табл.", "2026-12-20", "2024-12-20", 90, 3],
+        ["Физраствор NaCl 0.9%, 500мл", "2028-01-01", "2025-01-01", 55, 300]
+      ];
+      return rows.map((r, i) => ({ id: "ph-" + (i + 1), name: r[0], expire: r[1], manufacture: r[2], price: r[3], qty: r[4] }));
+    }
+    function seedLab() {
+      const names = ["Айгуль Сыдыкова", "Нурлан Асанов", "Ирина Соколова", "Дмитрий Орлов", "Елизавета Ермакова", "Галина Андреева", "Светлана Крылова", "Татьяна Мельникова"];
+      const tests = ["Общий анализ крови", "Биохимия (15 показателей)", "ЭКГ с расшифровкой", "Онкомаркеры", "МРТ головного мозга", "ПЦР-тест", "Гликированный гемоглобин", "Липидограмма"];
+      const statuses = ["Готово", "В работе", "Готово", "В работе", "Готово", "В работе", "Готово", "В работе"];
+      const names2 = (LOTUS.doctors || []).map(d => d.name);
+      return names.map((n, i) => ({ id: "lab-" + (i + 1), patient: n, test: tests[i], doctor: names2[i % Math.max(names2.length, 1)] || "—", ordered: "2026-10-" + (20 + (i % 7)), status: statuses[i] }));
+    }
+    function seedRooms() {
+      const rows = [];
+      LOTUS.departments.forEach((d, i) => {
+        rows.push({ id: d.id + "-1", dept: d.name, deptId: d.id, room: "Каб. " + (101 + i * 2), status: i % 3 === 0 ? "Занят" : "Свободен" });
+        rows.push({ id: d.id + "-2", dept: d.name, deptId: d.id, room: "Каб. " + (102 + i * 2), status: i % 4 === 0 ? "Занят" : "Свободен" });
+      });
+      /* Каждому врачу с доступом в кабинет назначаем «свой» кабинет в его
+         отделении, чтобы он мог сам переключать «занят/свободен» (п.3). */
+      LOTUS.doctors.filter((d) => d.login).forEach((d, i) => {
+        const deptRooms = rows.filter((r) => r.deptId === d.dept);
+        const room = deptRooms[i % 2] || deptRooms[0];
+        if (room && !room.doctorId) room.doctorId = d.id;
+      });
+      return rows;
+    }
+
+    let staff = [], pharmacy = [], labQueue = [], rooms = [], issues = [], leaveRequests = [];
+    let editingStaffId = null, editingPharmId = null, editingPatientId = null;
+
+    /* ---------- Login ---------- */
+    function showLogin() {
+      $("dash-view").hidden = true; $("login-view").hidden = false;
+      doctor = null;
+    }
+    function buildNav() {
+      const pendingLeave = leaveRequests.filter(r => r.status === "pending").length;
+      $("adm-nav").innerHTML = NAV_ITEMS.filter(n => n.roles.includes(doctor.role)).map(n =>
+        `<button type="button" data-sec="${n.sec}"><span class="adm-ic">${n.icon}</span>${n.label}${n.sec === "requests" && pendingLeave ? ` <span class="adm-badge warn" style="margin-left:6px">${pendingLeave}</span>` : ""}</button>`
+      ).join("");
+    }
+    /* ---------- Сессия сотрудника ----------
+       Роль и личность сотрудника теперь приходят ТОЛЬКО с сервера — ничего
+       не хранится в localStorage/sessionStorage на этой странице. sessionUser
+       — ответ POST /api/auth/login, GET /api/auth/me или POST /api/auth/register
+       в едином формате: { id, role, username, doctor: { id, name, departmentId } }.
+       title/initials — из живого каталога врачей (LOTUS.doctors, тот же
+       источник, что видят пациенты), который уже загружен в lotusReady. */
+    async function enterCabinet(sessionUser) {
+      if (!sessionUser.doctor || !["doctor", "chief"].includes(sessionUser.role)) {
+        throw new Error("Этот аккаунт не привязан к врачу. Обратитесь к главному врачу клиники.");
+      }
+      const profile = (LOTUS.doctors || []).find(d => d.id === sessionUser.doctor.id) || {};
+      const dept = (LOTUS.departments || []).find(x => x.id === sessionUser.doctor.departmentId);
+      doctor = {
+        id: sessionUser.doctor.id,
+        role: sessionUser.role,
+        name: sessionUser.doctor.name,
+        title: profile.title || "",
+        initials: profile.initials || sessionUser.doctor.name.split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase(),
+        deptName: dept ? dept.name : ""
+      };
+
+      items = await loadSchedule();
+      labQueue = loadStore(LAB_KEY, seedLab);
+      pharmacy = loadStore(PHARM_KEY, seedPharmacy);
+      rooms = loadStore(ROOMS_KEY, seedRooms);
+      issues = loadStore(ISSUE_KEY, () => []);
+      leaveRequests = loadStore(LEAVE_KEY, () => []);
+      /* RBAC: личные данные сотрудников (ФИО, ИНН, дата рождения, адрес —
+         раздел «Персонал») доступны только главному врачу — теперь из
+         настоящей БД (GET /api/admin/doctors), не из localStorage. Лабораторная
+         очередь, склад аптеки и список кабинетов остаются локальной демо-частью
+         (см. пометки в соответствующих разделах) — они не входили в
+         обязательную схему БД/эндпоинтов этого проекта. */
+      if (doctor.role === "chief") {
+        try {
+          const res = await lotusApi("/admin/doctors");
+          staff = res.doctors || [];
+        } catch (e) {
+          staff = [];
+          notify("Не удалось загрузить список персонала: " + (e.message || e));
+        }
+      } else {
+        staff = [];
+      }
+
+      $("login-view").hidden = true; $("dash-view").hidden = false;
+      $("d-avatar").textContent = doctor.initials;
+      $("d-name").textContent = doctor.name;
+      $("d-title").textContent = doctor.title;
+      $("d-role-badge").className = "adm-badge " + (doctor.role === "chief" ? "good" : "warn");
+      $("d-role-badge").textContent = ROLE_LABELS[doctor.role];
+      $("d-date").textContent = new Date().toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "long" });
+      buildNav();
+      goTo("dashboard");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    $("toggle-pass").addEventListener("click", (e) => {
+      const p = $("p"); const show = p.type === "password";
+      p.type = show ? "text" : "password";
+      e.target.textContent = show ? "скрыть" : "показать";
+    });
+
+    $("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const u = $("u").value.trim(), p = $("p").value;
+      const err = $("login-error");
+      if (!u || !p) { err.textContent = "Введите логин и пароль."; return; }
+      const btn = e.target.querySelector("button[type=submit]");
+      btn.disabled = true; btn.textContent = "Входим…";
+      try {
+        const res = await lotusApi("/auth/login", { method: "POST", body: { login: u, password: p } });
+        err.textContent = "";
+        e.target.reset();
+        await enterCabinet(res.user);
+      } catch (ex) {
+        err.textContent = ex.message || "Неверный логин или пароль. Проверьте данные и попробуйте снова.";
+      } finally {
+        btn.disabled = false; btn.textContent = "Войти";
+      }
+    });
+
+    $("logout").addEventListener("click", async () => {
+      try { await lotusApi("/auth/logout", { method: "POST" }); } catch (e) {}
+      showLogin(); notify("Вы вышли из кабинета.");
+    });
+
+    /* ---------- Навигация по разделам ---------- */
+    const TITLES = { dashboard: "Дашборд", staff: "Персонал", lab: "Лаборатория", ward: "Кабинеты", treatment: "Лечение", pharmacy: "Аптека", patients: "Пациенты", requests: "Заявки на отгул" };
+    /* Защищённый роут (frontend guard): независимо от того, как был вызван
+       goTo — клик по сайдбару или вызов из консоли/кода — обычный врач не
+       может попасть в раздел уровня главного врача. Это не замена серверной
+       авторизации, а демонстрация той же проверки на стороне страницы. */
+    function goTo(sec) {
+      if (CHIEF_ONLY.includes(sec) && doctor.role !== "chief") {
+        notify("Доступ запрещён: раздел «" + TITLES[sec] + "» доступен только главному врачу.");
+        sec = "dashboard";
+      }
+      section = sec;
+      document.querySelectorAll("#adm-nav button").forEach(b => b.classList.toggle("on", b.dataset.sec === sec));
+      $("adm-title").textContent = TITLES[sec];
+      $("adm-sidebar").classList.remove("open");
+      editingStaffId = editingPharmId = editingPatientId = null;
+      const renderers = { dashboard: renderDashboard, staff: renderStaff, lab: renderLab, ward: renderWard, treatment: renderTreatment, pharmacy: renderPharmacy, patients: renderPatients, requests: renderRequests };
+      renderers[sec]();
+    }
+    function requireChief() {
+      if (doctor.role !== "chief") { goTo("dashboard"); return false; }
+      return true;
+    }
+    $("adm-nav").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-sec]"); if (b) goTo(b.dataset.sec);
+    });
+    $("sidebar-toggle").addEventListener("click", () => $("adm-sidebar").classList.toggle("open"));
+
+    /* ============================================================
+       Мини-графики (инлайн SVG). Палитра: --chart-1/2/3 — категориальный
+       фикс. порядок; --azura/--chart-3/--rose — зарезервированы под статус
+       (хорошо / предупреждение / критично) и не используются как категории.
+       ============================================================ */
+    function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+    function showTip(host, x, y, html) {
+      let tip = host.querySelector(".chart-tip");
+      if (!tip) { tip = document.createElement("div"); tip.className = "chart-tip"; host.appendChild(tip); }
+      tip.innerHTML = html;
+      tip.style.left = x + "px"; tip.style.top = y + "px";
+      tip.classList.add("show");
+    }
+    function hideTip(host) { const t = host.querySelector(".chart-tip"); if (t) t.classList.remove("show"); }
+
+    function lineChart(host, labels, values, color) {
+      const W = 560, H = 190, PAD = 28;
+      const max = Math.max(...values, 1) * 1.15;
+      const stepX = (W - PAD * 2) / (labels.length - 1);
+      const pts = values.map((v, i) => [PAD + i * stepX, H - PAD - (v / max) * (H - PAD * 1.4)]);
+      const path = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+      const area = path + ` L${pts[pts.length-1][0]},${H-PAD} L${pts[0][0]},${H-PAD} Z`;
+      const gridY = [0.25, 0.5, 0.75].map(f => (PAD + f * (H - PAD * 1.4)).toFixed(1));
+      host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible" role="img" aria-label="Линейный график">
+        <g class="chart-grid">${gridY.map(y => `<line x1="${PAD}" y1="${y}" x2="${W-PAD}" y2="${y}"/>`).join("")}</g>
+        <path d="${area}" fill="${color}" opacity="0.12"></path>
+        <path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+        ${pts.map((p,i) => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${color}" data-i="${i}" style="cursor:pointer"></circle>`).join("")}
+        <g class="chart-axis">${labels.map((l,i) => `<text x="${pts[i][0]}" y="${H-6}" text-anchor="middle">${esc(l)}</text>`).join("")}</g>
+      </svg>`;
+      host.style.position = "relative";
+      host.querySelectorAll("circle").forEach((c, i) => {
+        c.addEventListener("mouseenter", () => {
+          const rect = host.getBoundingClientRect();
+          const svgRect = host.querySelector("svg").getBoundingClientRect();
+          const scaleX = svgRect.width / W;
+          showTip(host, pts[i][0]*scaleX, (pts[i][1]/H)*svgRect.height, `<b>${esc(labels[i])}</b>: ${values[i]}`);
+        });
+        c.addEventListener("mouseleave", () => hideTip(host));
+      });
+    }
+
+    function donutChart(host, segments) {
+      const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+      const R = 54, CX = 70, CY = 70, STROKE = 22;
+      const circ = 2 * Math.PI * R;
+      let offset = 0;
+      const arcs = segments.map(seg => {
+        const frac = seg.value / total;
+        const len = frac * circ;
+        const html = `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${seg.color}" stroke-width="${STROKE}"
+          stroke-dasharray="${len.toFixed(1)} ${(circ-len).toFixed(1)}" stroke-dashoffset="${(-offset).toFixed(1)}"
+          transform="rotate(-90 ${CX} ${CY})" data-label="${esc(seg.label)}" data-value="${seg.value}" data-pct="${Math.round(frac*100)}"
+          style="cursor:pointer;transition:stroke-width .12s" stroke-linecap="butt"></circle>`;
+        offset += len;
+        return html;
+      }).join("");
+      host.innerHTML = `<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <svg viewBox="0 0 140 140" style="width:140px;height:140px;flex:none;overflow:visible" role="img" aria-label="Круговая диаграмма">
+          <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${cssVar('--line')}" stroke-width="${STROKE}"></circle>
+          ${arcs}
+        </svg>
+        <div class="chart-legend" style="flex-direction:column;align-items:flex-start">
+          ${segments.map(s => `<span class="sw"><span class="dot" style="background:${s.color}"></span>${esc(s.label)} — <b>${s.value}</b> (${Math.round(s.value/total*100)}%)</span>`).join("")}
+        </div>
+      </div>`;
+      host.style.position = "relative";
+      host.querySelectorAll("circle[data-label]").forEach(c => {
+        c.addEventListener("mouseenter", (e) => {
+          c.style.strokeWidth = STROKE + 4;
+          const rect = host.getBoundingClientRect(), er = e.target.getBoundingClientRect();
+          showTip(host, er.left - rect.left + er.width/2, er.top - rect.top, `<b>${c.dataset.label}</b>: ${c.dataset.value} (${c.dataset.pct}%)`);
+        });
+        c.addEventListener("mouseleave", () => { c.style.strokeWidth = STROKE; hideTip(host); });
+      });
+    }
+
+    function barChart(host, labels, values, colorFn) {
+      const W = 560, H = 190, PAD = 26, GAP = 10;
+      const max = Math.max(...values, 1) * 1.15;
+      const n = values.length;
+      const bw = (W - PAD * 2 - GAP * (n - 1)) / n;
+      const bars = values.map((v, i) => {
+        const h = (v / max) * (H - PAD * 1.6);
+        const x = PAD + i * (bw + GAP);
+        const y = H - PAD - h;
+        return { x, y, w: bw, h, v, i };
+      });
+      host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible" role="img" aria-label="Столбчатая диаграмма">
+        <g class="chart-grid"><line x1="${PAD}" y1="${H-PAD}" x2="${W-PAD}" y2="${H-PAD}"/></g>
+        ${bars.map(b => `<rect x="${b.x.toFixed(1)}" y="${b.y.toFixed(1)}" width="${b.w.toFixed(1)}" height="${Math.max(b.h,2).toFixed(1)}" rx="4" fill="${colorFn(b.v,b.i)}" data-i="${b.i}" style="cursor:pointer"></rect>`).join("")}
+        <g class="chart-axis">${labels.map((l,i) => `<text x="${(bars[i].x + bars[i].w/2).toFixed(1)}" y="${H-6}" text-anchor="middle">${esc(l.slice(0,10))}</text>`).join("")}</g>
+      </svg>`;
+      host.style.position = "relative";
+      host.querySelectorAll("rect").forEach((r, i) => {
+        r.addEventListener("mouseenter", () => {
+          const svgRect = host.querySelector("svg").getBoundingClientRect(), rect = host.getBoundingClientRect();
+          const scale = svgRect.width / W;
+          showTip(host, (bars[i].x + bars[i].w/2) * scale, bars[i].y * (svgRect.height/H), `<b>${esc(labels[i])}</b>: ${values[i]}`);
+        });
+        r.addEventListener("mouseleave", () => hideTip(host));
+      });
+    }
+
+    /* ============================================================
+       РАЗДЕЛ: Дашборд
+       ============================================================ */
+    /* Анимированные счётчики (Count-Up от 0 до целевого значения). Карточки
+       заполняются с data-n="<целевое значение>" и текстом "0" — после вставки
+       в DOM вызываем animateCountUp(container), и число докручивается наверх. */
+    function animateCountUp(container) {
+      container.querySelectorAll(".n[data-n]").forEach((el) => {
+        const target = Number(el.dataset.n) || 0;
+        const steps = 24; let t = 0;
+        const id = setInterval(() => {
+          t++;
+          el.textContent = t >= steps ? target : Math.round(target * (t / steps));
+          if (t >= steps) clearInterval(id);
+        }, 22);
+      });
+    }
+    function tile(ic, label, n) { return `<article class="adm-tile stagger-item"><div class="ic">${ic}</div><div class="n" data-n="${n}">0</div><div class="muted">${label}</div></article>`; }
+
+    async function renderDashboard() {
+      if (doctor.role !== "chief") return renderDoctorDashboard();
+      const sorted = items.slice().sort((a, b) => a.time.localeCompare(b.time));
+      const done = sorted.filter(i => i.status === "done").length;
+      const freeRooms = rooms.filter(r => r.status === "Свободен").length;
+      // Реальное количество пациентов клиники — GET /api/admin/stats
+      // (раньше считалось по локальному localStorage-каталогу, который
+      // никогда не совпадал с настоящей базой).
+      let patients = 0;
+      try { patients = (await lotusApi("/admin/stats")).patients || 0; } catch (e) { /* остаётся 0, не критично для дашборда */ }
+
+      const days = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+      const seriesSeed = doctor.id.length + items.length;
+      const series = days.map((_, i) => 14 + ((seriesSeed * (i + 3) * 17) % 23));
+
+      const c = $("adm-content");
+      c.innerHTML = `
+        <div class="adm-section-head"><h2>Аналитика клиники</h2></div>
+        <div class="adm-grid" id="dash-tiles"></div>
+        <div class="adm-panels">
+          <div class="adm-card chart-card">
+            <h3>Пациенты за неделю</h3>
+            <div id="dash-line"></div>
+          </div>
+          <div class="adm-card">
+            <h3>Предстоящие приёмы</h3>
+            <div id="dash-upcoming" style="display:grid;gap:10px"></div>
+          </div>
+        </div>
+        <div class="adm-panels">
+          <div class="adm-card">
+            <h3>Персонал клиники</h3>
+            <div class="adm-table-wrap" id="dash-staff-table"></div>
+          </div>
+          <div class="adm-card">
+            <h3>Аптека — требует внимания</h3>
+            <div class="adm-table-wrap" id="dash-stock-table"></div>
+          </div>
+        </div>
+        <div class="adm-section-head" style="margin-top:8px"><h2>Приёмы сегодня — ${esc(doctor.name)}</h2></div>
+        <div class="dc-filters" id="filters">
+          <button data-f="all" class="on">Все</button>
+          <button data-f="pending">Ожидают</button>
+          <button data-f="done">Завершены</button>
+        </div>
+        <div class="dc-list" id="schedule"></div>`;
+
+      $("dash-tiles").innerHTML = [
+        ["◇", "Всего пациентов", patients],
+        ["✚", "Врачей в штате", staff.length],
+        ["▣", "Приёмов сегодня", sorted.length],
+        ["⌂", "Свободных кабинетов", freeRooms]
+      ].map(([ic, label, n]) => tile(ic, label, n)).join("");
+      lotusAnimateList($("dash-tiles"));
+      animateCountUp($("dash-tiles"));
+
+      lineChart($("dash-line"), days, series, cssVar("--chart-1"));
+
+      const upcoming = sorted.filter(i => i.status !== "done").slice(0, 5);
+      $("dash-upcoming").innerHTML = upcoming.length ? upcoming.map(i => `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg-2)">
+          <div><b>${esc(i.patient.name)}</b><div class="muted" style="font-size:13px">${i.time} · ${esc(i.reason)}</div></div>
+          <span class="adm-badge warn">Ожидает</span>
+        </div>`).join("") : `<p class="muted">Все приёмы на сегодня завершены.</p>`;
+
+      $("dash-staff-table").innerHTML = crudTable(
+        ["ID", "Имя", "Специализация", "Отделение", "Статус"],
+        staff.slice(0, 5).map(s => [s.id, esc(s.name), esc(s.title || "—"), esc(s.departmentName || "—"), badge(s.active ? "good" : "bad", s.active ? "Активен" : "Деактивирован")])
+      );
+
+      const attention = pharmacy.filter(p => p.qty < 10).sort((a,b) => a.qty - b.qty).slice(0, 5);
+      $("dash-stock-table").innerHTML = crudTable(
+        ["Препарат", "Остаток", "Статус"],
+        attention.map(p => [p.name, p.qty, stockBadge(p.qty)])
+      ) || `<p class="muted" style="padding:14px">Запасы в норме.</p>`;
+
+      renderScheduleList();
+    }
+
+    /* RBAC: рабочий стол обычного врача — только собственное расписание и
+       приём пациента. Никаких данных о персонале, аптеке, кабинетах и
+       пациентах других врачей (ни в разметке, ни в памяти — см. login()). */
+    /* ---------- Статус анализов по значку (п.5) ---------- */
+    function labBadge(status) {
+      if (status === "Готово") return badge("good", status);
+      if (status === "В работе") return badge("warn", status);
+      return badge("neutral", status);
+    }
+    /* ---------- Заявки на выходной (п.2) ---------- */
+    function myLeaveList() {
+      return leaveRequests.filter(r => r.doctorId === doctor.id).slice().sort((a, b) => b.created.localeCompare(a.created));
+    }
+    function leaveStatusBadge(status) {
+      if (status === "approved") return badge("good", "Одобрено");
+      if (status === "declined") return badge("bad", "Отклонено");
+      return badge("warn", "На рассмотрении");
+    }
+    function leaveRequestModal() {
+      const today = new Date().toISOString().slice(0, 10);
+      openModal(`<form method="dialog" id="leave-form">
+        <h3>Запросить выходной</h3>
+        <p class="muted">Заявка уйдёт главному врачу на рассмотрение.</p>
+        <label>Дата<input type="date" id="lv-date" min="${today}" value="${today}" required></label>
+        <label>Причина<textarea id="lv-reason" rows="3" required placeholder="Например: по семейным обстоятельствам"></textarea></label>
+        <div class="row">
+          <button type="button" class="btn ghost" data-close>Отмена</button>
+          <button type="submit" class="btn gold">Отправить заявку</button>
+        </div></form>`);
+      $("leave-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const date = $("lv-date").value, reason = $("lv-reason").value.trim();
+        if (!date || !reason) { notify("Укажите дату и причину."); return; }
+        leaveRequests.push({ id: "lv-" + Date.now().toString(36), doctorId: doctor.id, doctorName: doctor.name, date, reason, status: "pending", created: new Date().toISOString() });
+        saveStore(LEAVE_KEY, leaveRequests);
+        closeModal();
+        notify("Заявка на выходной отправлена главному врачу.");
+        if (section === "dashboard") renderDoctorDashboard();
+      });
+    }
+
+    function renderDoctorDashboard() {
+      const sorted = items.slice().sort((a, b) => a.time.localeCompare(b.time));
+      const done = sorted.filter(i => i.status === "done").length;
+      const pending = sorted.length - done;
+
+      const days = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+      const seriesSeed = doctor.id.length + items.length;
+      const series = days.map((_, i) => 3 + ((seriesSeed * (i + 3) * 11) % 9));
+
+      const myRoom = rooms.find(r => r.doctorId === doctor.id);
+      const myLab = labQueue.filter(l => l.doctor === doctor.name);
+      const myLeaves = myLeaveList();
+
+      const c = $("adm-content");
+      c.innerHTML = `
+        <div class="adm-section-head"><h2>Рабочий стол</h2></div>
+        <div class="adm-grid" id="dash-tiles"></div>
+        <div class="adm-panels">
+          <div class="adm-card chart-card">
+            <h3>Мои пациенты за неделю</h3>
+            <div id="dash-line"></div>
+          </div>
+          <div class="adm-card">
+            <h3>Предстоящие приёмы</h3>
+            <div id="dash-upcoming" style="display:grid;gap:10px"></div>
+          </div>
+        </div>
+        <div class="adm-panels">
+          <div class="adm-card">
+            <h3>Мой кабинет и выходной</h3>
+            <div id="my-room" style="margin-bottom:16px"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+              <b style="font-size:15px">Выходной</b>
+              <button class="btn ghost" id="leave-request-btn" type="button" style="padding:8px 12px;font-size:14px">Запросить выходной</button>
+            </div>
+            <div id="my-leaves" style="display:grid;gap:8px"></div>
+          </div>
+          <div class="adm-card">
+            <h3>Статус моих анализов</h3>
+            <p class="muted" style="font-size:14px;margin-top:-8px">Отмечает готовность главный врач в разделе «Лаборатория».</p>
+            <div id="my-lab" style="display:grid;gap:8px"></div>
+          </div>
+        </div>
+        <div class="adm-section-head" style="margin-top:8px"><h2>Приём пациента — ${esc(doctor.name)}</h2></div>
+        <div class="dc-filters" id="filters">
+          <button data-f="all" class="on">Все</button>
+          <button data-f="pending">Ожидают</button>
+          <button data-f="done">Завершены</button>
+        </div>
+        <div class="dc-list" id="schedule"></div>`;
+
+      $("dash-tiles").innerHTML = [
+        ["▣", "Приёмов сегодня", sorted.length],
+        ["◷", "Ожидают", pending],
+        ["✚", "Завершено", done]
+      ].map(([ic, label, n]) => tile(ic, label, n)).join("");
+      lotusAnimateList($("dash-tiles"));
+      animateCountUp($("dash-tiles"));
+
+      lineChart($("dash-line"), days, series, cssVar("--chart-1"));
+
+      // Будущие приёмы загружаем отдельно, не меняя сегодняшнее расписание.
+      $("dash-upcoming").textContent = "Загружаем предстоящие приёмы…";
+      (async () => {
+        const container = $("dash-upcoming");
+        try {
+          const res = await lotusApi("/doctor/schedule?days=14");
+          const upcoming = (res.appointments || [])
+            .filter(a => ["pending", "confirmed"].includes(a.status))
+            .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))
+            .slice(0, 5);
+
+          if (!container.isConnected) return;
+          container.innerHTML = upcoming.length ? upcoming.map(a => {
+            const patientName = [a.patient.firstName, a.patient.lastName]
+              .filter(Boolean).join(" ") || "Пациент";
+            const dateTime = new Date(a.scheduledAt).toLocaleString("ru-RU", {
+              day: "numeric", month: "long", year: "numeric",
+              hour: "2-digit", minute: "2-digit"
+            });
+            return `
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg-2)">
+                <div><b>${esc(patientName)}</b>
+                  <div class="muted" style="font-size:13px">${esc(dateTime)} · ${esc(a.reason || "")}</div>
+                </div>
+                <span class="adm-badge warn">${a.status === "confirmed" ? "Подтверждён" : "Ожидает"}</span>
+              </div>`;
+          }).join("") : `<p class="muted">Предстоящих приёмов пока нет.</p>`;
+        } catch (error) {
+          if (container.isConnected) container.textContent = "Не удалось загрузить будущие приёмы.";
+        }
+      })();
+
+      $("my-room").innerHTML = myRoom
+        ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg-2)">
+            <div><b>${esc(myRoom.room)}</b><div class="muted" style="font-size:13px">${esc(myRoom.dept)}</div></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${badge(myRoom.status === "Свободен" ? "good" : "bad", myRoom.status)}
+              <button class="btn ghost" id="toggle-room-btn" type="button" style="padding:8px 12px;font-size:14px">Изменить</button>
+            </div>
+          </div>`
+        : `<p class="muted">Кабинет пока не назначен.</p>`;
+      $("toggle-room-btn")?.addEventListener("click", () => {
+        myRoom.status = myRoom.status === "Свободен" ? "Занят" : "Свободен";
+        saveStore(ROOMS_KEY, rooms);
+        notify("Статус кабинета: " + myRoom.status);
+        renderDoctorDashboard();
+      });
+
+      $("my-leaves").innerHTML = myLeaves.length ? myLeaves.slice(0, 4).map(r => `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px">
+          <span>${esc(r.date)} — ${esc(r.reason)}</span>${leaveStatusBadge(r.status)}
+        </div>`).join("") : `<p class="muted" style="font-size:14px">Заявок на выходной пока нет.</p>`;
+      $("leave-request-btn").addEventListener("click", leaveRequestModal);
+
+      $("my-lab").innerHTML = myLab.length ? myLab.slice(0, 6).map(l => `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--bg-2);font-size:14px">
+          <span><b>${esc(l.patient)}</b> — ${esc(l.test)}</span>${labBadge(l.status)}
+        </div>`).join("") : `<p class="muted">Направлений в лабораторию пока нет.</p>`;
+
+      renderScheduleList();
+    }
+
+    function stockBadge(qty) {
+      if (qty === 0) return badge("bad", "Нет в наличии");
+      if (qty < 10) return badge("warn", "Заканчивается");
+      return badge("good", "В наличии");
+    }
+    function badge(kind, text) { return `<span class="adm-badge ${kind}">${esc(text)}</span>`; }
+
+    function crudTable(cols, rows) {
+      if (!rows.length) return "";
+      return `<table class="adm-table"><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead>
+        <tbody>${rows.map(r => `<tr>${r.map(v => `<td>${v}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    }
+
+    /* ---------- Приёмы сегодня (переиспользуется в Дашборде) ----------
+       Кнопка «Перенести приём» убрана: перенос на произвольное время со
+       стороны врача не входит в обязательный список эндпоинтов и требует
+       отдельного API (сейчас reschedule есть только у пациента, на свободный
+       слот, через PATCH /api/appointments/:id). Пациент сам переносит или
+       отменяет запись в своём кабинете (cabinet.html); врач отмечает приём
+       завершённым или смотрит карту пациента. */
+    function renderScheduleList() {
+      const sorted = items.slice().sort((a, b) => a.time.localeCompare(b.time));
+      const shown = sorted.filter(i => filter === "all" || i.status === filter);
+      $("schedule").innerHTML = shown.map(i => {
+        const isDone = i.status === "done";
+        return `<article class="dc-row stagger-item ${isDone ? "done" : ""}" data-id="${i.id}">
+          <div class="dc-time">${i.time}<small>30 мин</small></div>
+          <div>
+            <div><span class="dc-name">${esc(i.patient.name)}</span>
+              <span class="dc-status ${isDone ? "done" : "pending"}">${isDone ? "Завершён" : "Ожидает"}</span>
+              ${i.online ? `<span class="adm-badge neutral" style="margin-left:6px">Онлайн-запись</span>` : ""}</div>
+            <div class="muted" style="margin-top:4px">${esc(i.reason)}</div>
+            ${i.note ? `<div class="muted" style="margin-top:4px;font-size:15px">Заключение: ${esc(i.note)}</div>` : ""}
+          </div>
+          <div class="dc-actions">
+            <button class="btn gold" data-act="end" ${isDone ? "disabled" : ""}>Завершить приём</button>
+            <button class="btn ghost" data-act="history">История болезни</button>
+          </div>
+        </article>`;
+      }).join("") || `<p class="muted">В этой категории приёмов нет.</p>`;
+      lotusAnimateList($("schedule"));
+    }
+
+    document.addEventListener("click", (e) => {
+      const f = e.target.closest("#filters button[data-f]");
+      if (f) { filter = f.dataset.f; document.querySelectorAll("#filters button").forEach(x => x.classList.toggle("on", x === f)); renderScheduleList(); return; }
+      const btn = e.target.closest("#schedule [data-act]");
+      if (btn && !btn.disabled) {
+        const item = items.find(i => i.id === btn.closest("[data-id]").dataset.id);
+        if (btn.dataset.act === "end") endModal(item);
+        if (btn.dataset.act === "history") historyModal(item);
+      }
+    });
+
+    /* ---------- Modals ---------- */
+    const modal = $("modal");
+    function openModal(html) { modal.innerHTML = html; if (!modal.open) modal.showModal(); }
+    function closeModal() { if (modal.open) modal.close(); }
+    modal.addEventListener("click", (e) => { if (e.target === modal || e.target.closest("[data-close]")) closeModal(); });
+
+    function endModal(item) {
+      /* Интерфейс приёма (ЭМК): анамнез, диагноз по МКБ-10, назначение лечения,
+         направления на анализы — только по карте текущего пациента врача. */
+      openModal(`<form method="dialog" id="end-form">
+        <h3>Приём пациента · ЭМК</h3>
+        <p class="muted">${esc(item.patient.name)} · ${item.time}</p>
+        <label>Жалобы / анамнез
+          <textarea rows="2" id="end-anamnesis" placeholder="Жалобы, анамнез заболевания">${esc(item.anamnesis || "")}</textarea></label>
+        <label>Диагноз (МКБ-10)
+          <input id="end-icd" list="icd10-list" placeholder="Начните вводить код или диагноз" value="${esc(item.icd10 || "")}">
+        </label>
+        <datalist id="icd10-list">${ICD10.map(([code,name]) => `<option value="${esc(code)} — ${esc(name)}">`).join("")}</datalist>
+        <label>Лечение и рекомендации
+          <textarea rows="3" id="end-note" placeholder="Назначения, дозировки, рекомендации">${esc(item.note || "")}</textarea></label>
+        <label style="margin-bottom:6px">Направление на анализы (необязательно)</label>
+        <div style="display:grid;gap:6px;margin:0 0 16px">
+          ${LAB_REFERRAL_TESTS.map(t => `<label style="display:flex;flex-direction:row;align-items:center;gap:8px;margin:0;font-weight:500">
+            <input type="checkbox" value="${esc(t)}" class="end-lab-ref" style="width:auto;margin:0"> ${esc(t)}</label>`).join("")}
+        </div>
+        <div class="row">
+          <button type="button" class="btn ghost" data-close>Отмена</button>
+          <button type="submit" class="btn gold">Завершить приём</button>
+        </div></form>`);
+      $("end-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const submitBtn = e.target.querySelector("button[type=submit]");
+        const anamnesis = $("end-anamnesis").value.trim();
+        const icdRaw = $("end-icd").value.trim();
+        const note = $("end-note").value.trim();
+        const icdMatch = icdRaw.match(/^(\S+)\s+—\s+(.+)$/);
+        const icd10Code = icdMatch ? icdMatch[1] : (icdRaw || undefined);
+        const icd10Name = icdMatch ? icdMatch[2] : undefined;
+        submitBtn.disabled = true; submitBtn.textContent = "Сохраняем…";
+        try {
+          // ЭМК теперь пишется в настоящую БД: POST /api/doctor/consultations
+          // создаёт запись consultations (anamnesis/МКБ-10/назначения) и
+          // атомарно переводит сам приём в статус completed — это тот же
+          // сервер, который проверяет, что приём действительно на расписании
+          // этого врача (403, если нет).
+          await lotusApi("/doctor/consultations", {
+            method: "POST",
+            body: { appointmentId: item.id, anamnesis: anamnesis || undefined, icd10Code, icd10Name, treatmentNote: note || undefined, markCompleted: true }
+          });
+          item.status = "done"; item.anamnesis = anamnesis; item.icd10 = icdRaw; item.note = note;
+          // Направления на анализы — часть локального демо-модуля
+          // «Лаборатория» (не входит в обязательную схему БД/эндпоинтов),
+          // поэтому остаются в localStorage, как и раньше.
+          const refs = Array.from(document.querySelectorAll(".end-lab-ref:checked")).map(cb => cb.value);
+          if (refs.length) {
+            const today = new Date().toISOString().slice(0, 10);
+            refs.forEach(test => labQueue.push({
+              id: "lab-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+              patient: item.patient.name, test, doctor: doctor.name, ordered: today, status: "Назначено"
+            }));
+            saveStore(LAB_KEY, labQueue);
+          }
+          closeModal();
+          if (section === "dashboard") renderDashboard(); else renderScheduleList();
+          notify("Приём завершён: " + item.patient.name + (refs.length ? " · направлений в лабораторию: " + refs.length : ""));
+        } catch (ex) {
+          notify("Не удалось сохранить приём: " + (ex.message || ex));
+          submitBtn.disabled = false; submitBtn.textContent = "Завершить приём";
+        }
+      });
+    }
+
+    /* История болезни — настоящая медкарта пациента (RBAC: GET
+       /api/doctor/patients/:id отдаёт её только если у этого врача
+       действительно есть/был приём с этим пациентом — иначе сервер вернёт
+       403, независимо от того, что показывает эта страница). */
+    async function historyModal(item) {
+      openModal(`<h3>${esc(item.patient.name)}</h3><p class="muted">Загружаем карту пациента…</p>`);
+      let data;
+      try {
+        data = await lotusApi("/doctor/patients/" + item.patient.id);
+      } catch (ex) {
+        openModal(`<h3>${esc(item.patient.name)}</h3>
+          <p class="muted">Не удалось загрузить карту пациента: ${esc(ex.message || String(ex))}</p>
+          <div class="row"><button class="btn gold" data-close>Закрыть</button></div>`);
+        return;
+      }
+      const p = data.patient, rec = data.medicalRecord, consults = data.consultations || [];
+      openModal(`<h3>${esc(p.firstName)} ${esc(p.lastName || "")}</h3>
+        <p class="muted">${p.dob ? new Date(p.dob).toLocaleDateString("ru-RU") : "Дата рождения не указана"} · тел. ${esc(p.phone || "—")}</p>
+        ${rec
+          ? `<div class="metric"><span>Группа крови</span><b>${esc(rec.bloodType || "не указана")}</b></div>
+             <div class="metric"><span>Аллергии</span><b>${esc(rec.allergies || "не указаны")}</b></div>
+             <div class="metric"><span>Хронические состояния</span><b>${esc(rec.chronicConditions || "не указаны")}</b></div>`
+          : `<p class="muted">Медкарта (аллергии, хронические состояния) пока не заполнена.</p>`}
+        <ul class="dc-hist">${consults.length
+          ? consults.map(c => `<li><b>${new Date(c.createdAt).toLocaleDateString("ru-RU")}</b>${esc(c.icd10Name || c.icd10Code || "без диагноза")}${c.treatmentNote ? " — " + esc(c.treatmentNote) : ""}</li>`).join("")
+          : "<li>Записей о предыдущих приёмах пока нет.</li>"}</ul>
+        <div class="row"><button class="btn gold" data-close>Закрыть</button></div>`);
+    }
+
+    /* ============================================================
+       РАЗДЕЛ: Персонал (Staff Management)
+       ============================================================ */
+    /* Раньше этот раздел читал/писал локальный localStorage-каталог
+       (STAFF_KEY), никак не связанный с настоящими учётными записями входа.
+       Теперь это прямое CRUD поверх GET/POST/PATCH/DELETE
+       /api/admin/doctors — тех самых врачей из каталога клиники (та же
+       таблица Doctor, что отдаёт doctors.html). Создание/изменение логина
+       (username+password) идёт тем же запросом — сервер хеширует пароль
+       Argon2id и либо создаёт новую серверную учётную запись, либо меняет
+       пароль существующей; само РОЛЕВОЕ значение (doctor/chief) после
+       создания логина меняется только через отдельный, более
+       чувствительный эндпоинт (/api/admin/users/:id) и в этой форме не
+       редактируется — только показывается. */
+    function staffForm(s) {
+      s = s || {};
+      const depts = LOTUS.departments || [];
+      return `<div class="adm-form-card">
+        <h3>${editingStaffId ? "Редактировать сотрудника" : "Новый сотрудник"}</h3>
+        <form id="staff-form">
+          <div class="form-grid">
+            <label>Имя<input id="sf-first" required value="${esc((s.name||"").split(" ")[0]||"")}"></label>
+            <label>Фамилия<input id="sf-last" value="${esc((s.name||"").split(" ").slice(1).join(" "))}"></label>
+            <label>Специализация / должность<input id="sf-title" value="${esc(s.title||"")}" placeholder="Например: Кардиолог"></label>
+            <label>Отделение<select id="sf-dept" required>${depts.map(d => `<option value="${esc(d.id)}" ${s.departmentId===d.id?"selected":""}>${esc(d.name)}</option>`).join("")}</select></label>
+            <label>Пол<select id="sf-gender"><option value="">—</option><option value="м" ${s.gender==="м"?"selected":""}>Мужской</option><option value="ж" ${s.gender==="ж"?"selected":""}>Женский</option></select></label>
+            <label>Телефон<input id="sf-mobile" value="${esc(s.mobile||"")}" placeholder="+996"></label>
+            <label>ИНН<input id="sf-id" value="${esc(s.idNum||"")}"></label>
+            <label>Дата рождения<input id="sf-dob" type="date" value="${esc(s.dob||"")}"></label>
+          </div>
+          <label>Адрес<textarea id="sf-address" rows="2">${esc(s.address||"")}</textarea></label>
+          <div class="form-grid" style="margin-top:8px">
+            <label>Логин для входа в кабинет${s.username ? ` <span class="muted">(сейчас: ${esc(s.username)}${s.role ? ", роль: " + esc(ROLE_LABELS[s.role] || s.role) : ""})</span>` : ""}
+              <input id="sf-username" value="" placeholder="${s.username ? "оставьте пустым, чтобы не менять" : "например: cardio2"}" autocomplete="off"></label>
+            <label>${s.username ? "Новый пароль" : "Пароль"}
+              <input id="sf-password" type="password" placeholder="${s.username ? "оставьте пустым, чтобы не менять" : "минимум 8 символов"}" autocomplete="new-password"></label>
+            ${!s.username ? `<label>Роль<select id="sf-role"><option value="doctor">Врач</option><option value="chief">Главный врач / Админ</option></select></label>` : ""}
+          </div>
+          <div class="adm-form-actions">
+            <button type="submit" class="btn success">${editingStaffId ? "Обновить" : "Зарегистрировать"}</button>
+            ${editingStaffId ? `<button type="button" class="btn danger" id="sf-delete">Деактивировать</button><button type="button" class="btn ghost" id="sf-cancel">Отмена</button>` : ""}
+          </div>
+        </form>
+      </div>`;
+    }
+    function renderStaff() {
+      if (!requireChief()) return;
+      const c = $("adm-content");
+      c.innerHTML = `
+        <div class="adm-section-head"><h2>Управление персоналом</h2></div>
+        <div class="adm-search-row"><input id="staff-search" placeholder="Поиск по имени, специализации, отделению…"></div>
+        <div id="staff-form-host"></div>
+        <div class="adm-table-wrap"><div id="staff-table"></div></div>`;
+      $("staff-form-host").innerHTML = staffForm();
+      bindStaffForm();
+      $("staff-search").addEventListener("input", (e) => drawStaffTable(e.target.value));
+      drawStaffTable("");
+    }
+    function drawStaffTable(q) {
+      q = (q || "").toLowerCase();
+      const rows = staff.filter(s => !q || (s.name + " " + (s.title||"") + " " + (s.departmentName||"")).toLowerCase().includes(q));
+      $("staff-table").innerHTML = rows.length ? `<table class="adm-table"><thead><tr>
+          <th>ID</th><th>Имя</th><th>Специализация</th><th>Отделение</th><th>Логин</th><th>Телефон</th><th>Статус</th></tr></thead>
+        <tbody>${rows.map(s => `<tr class="row-edit" data-id="${esc(s.id)}">
+          <td>${esc(s.id)}</td><td>${esc(s.name)}</td><td>${esc(s.title||"—")}</td><td>${esc(s.departmentName||"—")}</td>
+          <td>${esc(s.username||"— (без входа)")}</td><td>${esc(s.mobile||"—")}</td>
+          <td>${badge(s.active ? "good" : "bad", s.active ? "Активен" : "Деактивирован")}</td></tr>`).join("")}</tbody></table>`
+        : `<p class="muted" style="padding:16px">Ничего не найдено.</p>`;
+      $("staff-table").querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", () => {
+        editingStaffId = tr.dataset.id;
+        $("staff-form-host").innerHTML = staffForm(staff.find(s => s.id === editingStaffId));
+        bindStaffForm();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }));
+    }
+    async function refreshStaff() {
+      staff = (await lotusApi("/admin/doctors")).doctors || [];
+    }
+    function bindStaffForm() {
+      $("staff-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const submitBtn = e.target.querySelector("button[type=submit]");
+        const first = $("sf-first").value.trim(), last = $("sf-last").value.trim();
+        const username = $("sf-username").value.trim();
+        const password = $("sf-password").value;
+        if (!first) { notify("Укажите имя сотрудника."); return; }
+        if (!$("sf-dept").value) { notify("Выберите отделение."); return; }
+        const body = {
+          name: [first, last].filter(Boolean).join(" "),
+          title: $("sf-title").value.trim() || undefined,
+          departmentId: $("sf-dept").value,
+          gender: $("sf-gender").value || undefined,
+          mobile: $("sf-mobile").value.trim() || undefined,
+          idNum: $("sf-id").value.trim() || undefined,
+          dob: $("sf-dob").value || undefined,
+          address: $("sf-address").value.trim() || undefined
+        };
+        if (username || password) { body.username = username; body.password = password; }
+        if (!editingStaffId) {
+          body.id = "d" + Date.now().toString(36);
+          const roleSel = $("sf-role"); if (roleSel) body.role = roleSel.value;
+        }
+        submitBtn.disabled = true; submitBtn.textContent = "Сохраняем…";
+        try {
+          if (editingStaffId) await lotusApi("/admin/doctors/" + editingStaffId, { method: "PATCH", body });
+          else await lotusApi("/admin/doctors", { method: "POST", body });
+          await refreshStaff();
+          notify(editingStaffId ? "Данные сотрудника обновлены." : "Сотрудник зарегистрирован.");
+          editingStaffId = null;
+          $("staff-form-host").innerHTML = staffForm(); bindStaffForm();
+          drawStaffTable($("staff-search").value);
+        } catch (ex) {
+          notify("Не удалось сохранить сотрудника: " + (ex.message || ex));
+          submitBtn.disabled = false; submitBtn.textContent = editingStaffId ? "Обновить" : "Зарегистрировать";
+        }
+      });
+      $("sf-delete")?.addEventListener("click", async () => {
+        // Деактивация, а не удаление: история приёмов/консультаций этого
+        // врача должна остаться в базе (медицинские записи не исчезают).
+        try {
+          await lotusApi("/admin/doctors/" + editingStaffId, { method: "DELETE" });
+          await refreshStaff();
+          notify("Сотрудник деактивирован.");
+          editingStaffId = null;
+          $("staff-form-host").innerHTML = staffForm(); bindStaffForm();
+          drawStaffTable($("staff-search").value);
+        } catch (ex) {
+          notify("Не удалось деактивировать сотрудника: " + (ex.message || ex));
+        }
+      });
+      $("sf-cancel")?.addEventListener("click", () => {
+        editingStaffId = null;
+        $("staff-form-host").innerHTML = staffForm(); bindStaffForm();
+      });
+    }
+
+    /* ============================================================
+       РАЗДЕЛ: Лаборатория
+       ============================================================ */
+    function renderLab() {
+      if (!requireChief()) return;
+      const c = $("adm-content");
+      const done = labQueue.filter(l => l.status === "Готово").length;
+      c.innerHTML = `
+        <div class="adm-section-head"><h2>Лабораторная очередь</h2></div>
+        <p class="muted" style="margin-top:-6px">Демо-раздел: хранится только в этом браузере (localStorage), не в базе данных — лабораторная очередь не входила в обязательную схему БД/эндпоинтов этого проекта.</p>
+        <div class="adm-grid" id="lab-tiles"></div>
+        <p class="muted" style="margin-bottom:10px">Нажмите на строку, чтобы переключить статус анализа.</p>
+        <div class="adm-table-wrap"><div id="lab-table"></div></div>`;
+      $("lab-tiles").innerHTML = [["▣","Всего заказов",labQueue.length],["✚","Готово",done],["◷","В работе",labQueue.length-done]].map(([ic,label,n]) => tile(ic,label,n)).join("");
+      lotusAnimateList($("lab-tiles"));
+      animateCountUp($("lab-tiles"));
+      drawLabTable();
+    }
+    function drawLabTable() {
+      $("lab-table").innerHTML = `<table class="adm-table"><thead><tr>
+          <th>ID</th><th>Пациент</th><th>Анализ</th><th>Врач</th><th>Дата</th><th>Статус</th></tr></thead>
+        <tbody>${labQueue.map(l => `<tr class="row-edit" data-id="${l.id}">
+          <td>${l.id}</td><td>${esc(l.patient)}</td><td>${esc(l.test)}</td><td>${esc(l.doctor)}</td><td>${esc(l.ordered)}</td>
+          <td>${badge(l.status === "Готово" ? "good" : "warn", l.status)}</td></tr>`).join("")}</tbody></table>`;
+      $("lab-table").querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", () => {
+        const row = labQueue.find(l => l.id === tr.dataset.id);
+        row.status = row.status === "Готово" ? "В работе" : "Готово";
+        saveStore(LAB_KEY, labQueue);
+        drawLabTable();
+      }));
+    }
+
+    /* ============================================================
+       РАЗДЕЛ: Кабинеты (Ward)
+       ============================================================ */
+    function renderWard() {
+      if (!requireChief()) return;
+      const c = $("adm-content");
+      const free = rooms.filter(r => r.status === "Свободен").length;
+      const assigned = rooms.filter(r => r.doctorId).length;
+      c.innerHTML = `
+        <div class="adm-section-head"><h2>Кабинеты и процедурные</h2></div>
+        <p class="muted" style="margin-top:-6px">Демо-раздел: назначения сохраняются только в localStorage этого браузера, не в MySQL. На других устройствах изменения не появятся.</p>
+        <div class="adm-grid" id="ward-tiles"></div>
+        <p class="muted" style="margin-bottom:12px">Выберите врача в столбце «Назначенный врач» — назначение сохранится автоматически. В списке доступны только сотрудники соответствующего отделения. Статус «Свободен / Занят» меняется отдельно.</p>
+        <div class="adm-table-wrap"><div id="ward-table"></div></div>`;
+      $("ward-tiles").innerHTML = [
+        ["⌂", "Всего кабинетов", rooms.length],
+        ["◇", "Свободно", free],
+        ["◈", "Занято", rooms.length - free],
+        ["♙", "Назначено врачам", assigned]
+      ].map(([ic, label, n]) => tile(ic, label, n)).join("");
+      lotusAnimateList($("ward-tiles"));
+      animateCountUp($("ward-tiles"));
+      drawWardTable();
+    }
+    function drawWardTable() {
+      if (!$("ward-table")) return;
+      const availableStaff = staff.filter(s => s.active && ["doctor", "chief"].includes(s.role));
+      $("ward-table").innerHTML = `<table class="adm-table"><thead><tr>
+        <th>Кабинет</th><th>Отделение</th><th>Назначенный врач</th><th>Статус</th></tr></thead>
+        <tbody>${rooms.map(r => {
+          const doctorsInDept = availableStaff
+            .filter(s => s.departmentId === r.deptId)
+            .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+          const current = staff.find(s => s.id === r.doctorId);
+          const obsolete = r.doctorId && !doctorsInDept.some(s => s.id === r.doctorId);
+          return `<tr>
+            <td>${esc(r.room)}</td>
+            <td>${esc(r.dept)}</td>
+            <td><select class="ward-doctor-select" data-room-id="${esc(r.id)}" aria-label="Назначить врача для ${esc(r.room)}" ${staff.length ? "" : "disabled"}>
+              <option value="" ${!r.doctorId ? "selected" : ""}>— Не назначен —</option>
+              ${obsolete ? `<option value="${esc(r.doctorId)}" selected disabled>${esc(current ? current.name : "Прежний врач")} (вне отделения / неактивен)</option>` : ""}
+              ${doctorsInDept.map(s => `<option value="${esc(s.id)}" ${r.doctorId === s.id ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
+            </select></td>
+            <td><span style="display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">
+              ${badge(r.status === "Свободен" ? "good" : "bad", r.status)}
+              <button type="button" class="btn ghost ward-status-toggle" data-room-id="${esc(r.id)}" style="padding:7px 11px;font-size:13px">Изменить</button>
+            </span></td>
+          </tr>`;
+        }).join("")}</tbody></table>`;
+      $("ward-table").querySelectorAll(".ward-doctor-select").forEach(select => {
+        select.addEventListener("change", () => {
+          if (!requireChief()) return;
+          const room = rooms.find(r => r.id === select.dataset.roomId);
+          if (!room) return;
+          const newDoctorId = select.value;
+          if (newDoctorId) {
+            const member = availableStaff.find(s => s.id === newDoctorId);
+            if (!member || member.departmentId !== room.deptId) {
+              notify("Нельзя назначить врача из другого отделения.");
+              renderWard();
+              return;
+            }
+            // Одному врачу — не более одного кабинета в этом браузере.
+            rooms.forEach(r => { if (r.id !== room.id && r.doctorId === newDoctorId) delete r.doctorId; });
+          }
+          if (newDoctorId) room.doctorId = newDoctorId;
+          else delete room.doctorId;
+          saveStore(ROOMS_KEY, rooms);
+          notify(newDoctorId ? "Врач назначен в " + room.room : "Назначение для " + room.room + " снято");
+          renderWard();
+        });
+      });
+      $("ward-table").querySelectorAll(".ward-status-toggle").forEach(btn => {
+        btn.addEventListener("click", () => {
+          if (!requireChief()) return;
+          const room = rooms.find(r => r.id === btn.dataset.roomId);
+          if (!room) return;
+          room.status = room.status === "Свободен" ? "Занят" : "Свободен";
+          saveStore(ROOMS_KEY, rooms);
+          renderWard();
+        });
+      });
+    }
+
+    /* ============================================================
+       РАЗДЕЛ: Лечение (сводка назначений по всей клинике)
+       ============================================================ */
+    /* Раньше эта сводка собиралась, пробегая по локальному объекту STAFF и
+       вызывая loadSchedule() синхронно для КАЖДОГО сотрудника — заглядывая в
+       расписание каждого коллеги через общий localStorage. Настоящий бэкенд
+       не разрешает врачу читать чужое расписание напрямую (RBAC: /api/doctor/*
+       видит только своих пациентов); эта клиническая сводка «по всей
+       клинике» доступна только главному врачу и идёт через отдельный,
+       админский эндпоинт — GET /api/admin/appointments. ИНН/детали консультации
+       (МКБ-10, назначения) этот список не отдаёт, поэтому эти колонки убраны —
+       они не показывались бы данными, которых нет. */
+    async function renderTreatment() {
+      if (!requireChief()) return;
+      const c = $("adm-content");
+      c.innerHTML = `
+        <div class="adm-section-head"><h2>Текущее лечение пациентов</h2></div>
+        <p class="muted" style="margin-top:-6px">Сводка по всей клинике за сегодня — доступна только главному врачу.</p>
+        <div class="adm-grid" id="treat-tiles"></div>
+        <div class="adm-table-wrap" id="treat-table"><p class="muted" style="padding:16px">Загружаем…</p></div>`;
+      const start = new Date(); start.setHours(0, 0, 0, 0);
+      const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      let appts = [];
+      try {
+        const res = await lotusApi("/admin/appointments?from=" + encodeURIComponent(start.toISOString()) + "&to=" + encodeURIComponent(end.toISOString()));
+        appts = res.appointments || [];
+      } catch (e) {
+        $("treat-table").innerHTML = `<p class="muted" style="padding:16px">Не удалось загрузить данные: ${esc(e.message || e)}</p>`;
+        return;
+      }
+      const finished = appts.filter(a => a.status === "completed");
+      const waiting = appts.filter(a => a.status === "pending" || a.status === "confirmed");
+      $("treat-tiles").innerHTML = [["◷", "Ожидают приёма", waiting.length], ["✚", "Приёмов завершено", finished.length], ["◈", "Записей за сегодня", appts.length]].map(([ic, label, n]) => tile(ic, label, n)).join("");
+      lotusAnimateList($("treat-tiles"));
+      animateCountUp($("treat-tiles"));
+      $("treat-table").innerHTML = finished.length ? crudTableFull(
+        ["Пациент", "Телефон", "Повод обращения", "Статус", "Врач"],
+        finished.map(a => [esc([a.patient.firstName, a.patient.lastName].filter(Boolean).join(" ")), esc(a.patient.phone || "—"), esc(a.reason || "—"), badge("good", "Завершён"), esc(a.doctor.name)])
+      ) : `<p class="muted" style="padding:16px">Завершённых приёмов сегодня пока нет.</p>`;
+    }
+    function crudTableFull(cols, rows) {
+      return `<table class="adm-table"><thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead>
+        <tbody>${rows.map(r => `<tr>${r.map(v => `<td>${v}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    }
+
+    /* ============================================================
+       РАЗДЕЛ: Аптека (Pharmacy Management)
+       ============================================================ */
+    function pharmForm(p) {
+      p = p || {};
+      return `<div class="adm-form-card">
+        <h3>${editingPharmId ? "Редактировать позицию" : "Новая позиция"}</h3>
+        <form id="pharm-form">
+          <div class="form-grid">
+            <label>Название<input id="pf-name" required value="${esc(p.name||"")}"></label>
+            <label>Цена, сом<input id="pf-price" type="number" min="0" value="${p.price??""}"></label>
+            <label>Срок годности<input id="pf-expire" type="date" value="${esc(p.expire||"")}"></label>
+            <label>Дата производства<input id="pf-manufacture" type="date" value="${esc(p.manufacture||"")}"></label>
+            <label>Количество<input id="pf-qty" type="number" min="0" value="${p.qty??""}"></label>
+          </div>
+          <div class="adm-form-actions">
+            <button type="submit" class="btn success">${editingPharmId ? "Обновить" : "Добавить"}</button>
+            ${editingPharmId ? `<button type="button" class="btn danger" id="pf-delete">Удалить</button><button type="button" class="btn ghost" id="pf-cancel">Отмена</button>` : ""}
+          </div>
+        </form>
+      </div>`;
+    }
+    function renderPharmacy() {
+      if (doctor.role !== "chief") return renderPharmacyIssue();
+      const c = $("adm-content");
+      const outOfStock = pharmacy.filter(p => p.qty === 0).length;
+      const low = pharmacy.filter(p => p.qty > 0 && p.qty < 10).length;
+      c.innerHTML = `
+        <div class="adm-section-head">
+          <h2>Управление аптекой</h2>
+          <div style="display:flex;gap:8px">
+            <button class="btn gold" id="pharm-invoice">Создать накладную</button>
+            <button class="btn ghost" id="pharm-supplier">Поставщик</button>
+          </div>
+        </div>
+        <p class="muted" style="margin-top:-6px">Демо-раздел: склад и журнал выдач хранятся только в этом браузере (localStorage), не в базе данных — учёт аптеки не входил в обязательную схему БД/эндпоинтов этого проекта.</p>
+        <div class="adm-grid" id="pharm-tiles"></div>
+        <div class="adm-panels">
+          <div class="adm-card chart-card"><h3>Остаток по топ-позициям</h3><div id="pharm-bar"></div></div>
+          <div class="adm-card chart-card"><h3>Структура склада по статусу</h3><div id="pharm-donut"></div></div>
+        </div>
+        <div id="pharm-form-host"></div>
+        <div class="adm-table-wrap"><div id="pharm-table"></div></div>
+        <div class="adm-section-head" style="margin-top:8px"><h2>Журнал выдач врачами</h2></div>
+        <div class="adm-table-wrap" id="issue-log"></div>`;
+      $("pharm-tiles").innerHTML = [["⚗","Позиций на складе",pharmacy.length],["◷","Заканчиваются",low],["✚","Нет в наличии",outOfStock]].map(([ic,label,n]) => tile(ic,label,n)).join("");
+      lotusAnimateList($("pharm-tiles"));
+      animateCountUp($("pharm-tiles"));
+
+      const top = pharmacy.slice().sort((a,b) => b.qty - a.qty).slice(0, 6);
+      barChart($("pharm-bar"), top.map(p => p.name), top.map(p => p.qty), () => cssVar("--chart-1"));
+      donutChart($("pharm-donut"), [
+        { label: "В наличии", value: pharmacy.filter(p => p.qty >= 10).length, color: cssVar("--azura") },
+        { label: "Заканчивается", value: low, color: cssVar("--chart-3") },
+        { label: "Нет в наличии", value: outOfStock, color: cssVar("--rose") }
+      ]);
+
+      $("pharm-invoice").addEventListener("click", () => notify("Накладная сформирована (демо)."));
+      $("pharm-supplier").addEventListener("click", () => notify("Карточка поставщика открыта (демо)."));
+      $("pharm-form-host").innerHTML = pharmForm(); bindPharmForm();
+      drawPharmTable();
+
+      $("issue-log").innerHTML = issues.length ? `<table class="adm-table"><thead><tr>
+          <th>Время</th><th>Препарат</th><th>Кол-во</th><th>Для кого/чего</th><th>Врач</th></tr></thead>
+        <tbody>${issues.slice(0, 30).map(i => `<tr><td>${new Date(i.date).toLocaleString("ru-RU", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })}</td>
+          <td>${esc(i.drug)}</td><td>${i.qty}</td><td>${esc(i.reason)}</td><td>${esc(i.doctor)}</td></tr>`).join("")}</tbody></table>`
+        : `<p class="muted" style="padding:16px">Выдач пока не было.</p>`;
+    }
+
+    /* ---------- Аптека: выдача препаратов обычным врачом (п.1) ---------- */
+    function renderPharmacyIssue() {
+      const c = $("adm-content");
+      const low = pharmacy.filter(p => p.qty > 0 && p.qty < 10).length;
+      const out = pharmacy.filter(p => p.qty === 0).length;
+      c.innerHTML = `
+        <div class="adm-section-head"><h2>Аптека — выдача препаратов</h2></div>
+        <p class="muted" style="margin-top:-6px">Демо-раздел: склад хранится только в этом браузере (localStorage), не в базе данных. Выберите препарат, укажите количество и для кого/чего он выдаётся — остаток на складе уменьшится сразу.</p>
+        <div class="adm-grid" id="pharm-tiles"></div>
+        <div class="adm-form-card">
+          <h3>Выдать препарат</h3>
+          <form id="issue-form">
+            <div class="form-grid">
+              <label>Препарат<select id="is-drug">${pharmacy.map(p => `<option value="${p.id}" ${p.qty === 0 ? "disabled" : ""}>${esc(p.name)} — остаток ${p.qty}</option>`).join("")}</select></label>
+              <label>Количество<input id="is-qty" type="number" min="1" value="1"></label>
+              <label style="grid-column:1/-1">Для кого / для чего<input id="is-reason" required placeholder="Например: Мария Белова — назначение после приёма"></label>
+            </div>
+            <div class="adm-form-actions"><button type="submit" class="btn success">Выдать</button></div>
+          </form>
+        </div>
+        <div class="adm-section-head" style="margin-top:8px"><h2>Мои выдачи сегодня</h2></div>
+        <div class="adm-table-wrap" id="issue-table"></div>`;
+      $("pharm-tiles").innerHTML = [["⚗","Позиций на складе",pharmacy.length],["◷","Заканчивается",low],["✚","Нет в наличии",out]].map(([ic,label,n]) => tile(ic,label,n)).join("");
+      lotusAnimateList($("pharm-tiles"));
+      animateCountUp($("pharm-tiles"));
+
+      $("issue-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const drug = pharmacy.find(p => p.id === $("is-drug").value);
+        const qty = Math.max(1, Number($("is-qty").value || 1));
+        const reason = $("is-reason").value.trim();
+        if (!drug) return;
+        if (!reason) { notify("Укажите, для кого или для чего выдаётся препарат."); return; }
+        if (qty > drug.qty) { notify("На складе недостаточно: остаток " + drug.qty + "."); return; }
+        drug.qty -= qty;
+        saveStore(PHARM_KEY, pharmacy);
+        issues.unshift({ id: "iss-" + Date.now().toString(36), drug: drug.name, qty, reason, doctor: doctor.name, date: new Date().toISOString() });
+        saveStore(ISSUE_KEY, issues);
+        notify("Выдано: " + drug.name + " × " + qty);
+        renderPharmacyIssue();
+      });
+      drawIssueTable();
+    }
+    function drawIssueTable() {
+      const mine = issues.filter(i => i.doctor === doctor.name);
+      $("issue-table").innerHTML = mine.length ? `<table class="adm-table"><thead><tr>
+          <th>Время</th><th>Препарат</th><th>Кол-во</th><th>Для кого/чего</th></tr></thead>
+        <tbody>${mine.slice(0, 20).map(i => `<tr><td>${new Date(i.date).toLocaleTimeString("ru-RU", { hour:"2-digit", minute:"2-digit" })}</td>
+          <td>${esc(i.drug)}</td><td>${i.qty}</td><td>${esc(i.reason)}</td></tr>`).join("")}</tbody></table>`
+        : `<p class="muted" style="padding:16px">Сегодня выдач ещё не было.</p>`;
+    }
+    function drawPharmTable() {
+      $("pharm-table").innerHTML = `<table class="adm-table"><thead><tr>
+          <th>ID</th><th>Название</th><th>Срок годности</th><th>Производство</th><th>Цена</th><th>Кол-во</th><th>Статус</th></tr></thead>
+        <tbody>${pharmacy.map(p => `<tr class="row-edit" data-id="${p.id}">
+          <td>${p.id}</td><td>${esc(p.name)}</td><td>${esc(p.expire)}</td><td>${esc(p.manufacture)}</td>
+          <td>${p.price} сом</td><td>${p.qty}</td><td>${stockBadge(p.qty)}</td></tr>`).join("")}</tbody></table>`;
+      $("pharm-table").querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", () => {
+        editingPharmId = tr.dataset.id;
+        $("pharm-form-host").innerHTML = pharmForm(pharmacy.find(p => p.id === editingPharmId));
+        bindPharmForm();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }));
+    }
+    function bindPharmForm() {
+      $("pharm-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const rec = {
+          id: editingPharmId || ("ph-" + Date.now().toString(36)),
+          name: $("pf-name").value.trim(), price: Number($("pf-price").value || 0),
+          expire: $("pf-expire").value, manufacture: $("pf-manufacture").value, qty: Number($("pf-qty").value || 0)
+        };
+        if (!rec.name) { notify("Укажите название препарата."); return; }
+        if (editingPharmId) pharmacy = pharmacy.map(p => p.id === editingPharmId ? rec : p);
+        else pharmacy.push(rec);
+        saveStore(PHARM_KEY, pharmacy);
+        notify(editingPharmId ? "Позиция обновлена." : "Позиция добавлена на склад.");
+        renderPharmacy();
+      });
+      $("pf-delete")?.addEventListener("click", () => {
+        pharmacy = pharmacy.filter(p => p.id !== editingPharmId);
+        saveStore(PHARM_KEY, pharmacy);
+        notify("Позиция удалена.");
+        renderPharmacy();
+      });
+      $("pf-cancel")?.addEventListener("click", () => { editingPharmId = null; renderPharmacy(); });
+    }
+
+    /* ============================================================
+       РАЗДЕЛ: Пациенты
+       ============================================================
+       Раньше здесь была полноценная CRUD-форма поверх localStorage —
+       главный врач мог «создать» пациента вручную, с фиктивным паролем,
+       что для настоящей системы было бы дырой (учётка без ведома и
+       согласия человека). В реальной схеме пациенты регистрируются только
+       сами — через cabinet.html (с явным согласием на обработку
+       персональных данных, ст. consentAt в БД). Этот раздел — настоящий,
+       только для чтения: GET /api/admin/patients отдаёт тех пациентов,
+       которые уже есть в базе (кто записывался на приём или
+       зарегистрировался). */
+    function renderPatients() {
+      if (!requireChief()) return;
+      const c = $("adm-content");
+      c.innerHTML = `
+        <div class="adm-section-head"><h2>Пациенты клиники</h2></div>
+        <p class="muted" style="margin-top:-6px">Пациенты регистрируются сами, через личный кабинет (с согласием на обработку персональных данных) — здесь только просмотр и поиск по уже существующим записям.</p>
+        <div class="adm-search-row"><input id="patient-search" placeholder="Поиск по имени, телефону, email…"></div>
+        <div class="adm-table-wrap" id="patient-table"><p class="muted" style="padding:16px">Загружаем…</p></div>`;
+      $("patient-search").addEventListener("input", (e) => drawPatientTable(e.target.value));
+      drawPatientTable("");
+    }
+    async function drawPatientTable(q) {
+      let rows = [];
+      try {
+        rows = (await lotusApi("/admin/patients" + (q ? "?q=" + encodeURIComponent(q) : ""))).patients || [];
+      } catch (ex) {
+        $("patient-table").innerHTML = `<p class="muted" style="padding:16px">Не удалось загрузить пациентов: ${esc(ex.message || ex)}</p>`;
+        return;
+      }
+      $("patient-table").innerHTML = rows.length ? `<table class="adm-table"><thead><tr>
+          <th>ID</th><th>Имя</th><th>Телефон</th><th>Email</th><th>Статус</th></tr></thead>
+        <tbody>${rows.map(p => `<tr>
+          <td>${esc(p.id)}</td><td>${esc(p.firstName)} ${esc(p.lastName||"")}</td><td>${esc(p.phone)}</td><td>${esc(p.email||"—")}</td>
+          <td>${badge(p.active ? "good" : "bad", p.active ? "Активен" : "Деактивирован")}</td></tr>`).join("")}</tbody></table>`
+        : `<p class="muted" style="padding:16px">Пациенты не найдены.</p>`;
+    }
+
+    /* ============================================================
+       РАЗДЕЛ: Заявки на отгул (п.2 — одобряет только главный врач)
+       ============================================================ */
+    function renderRequests() {
+      if (!requireChief()) return;
+      const c = $("adm-content");
+      const pending = leaveRequests.filter(r => r.status === "pending").length;
+      const approved = leaveRequests.filter(r => r.status === "approved").length;
+      c.innerHTML = `
+        <div class="adm-section-head"><h2>Заявки на отгул</h2></div>
+        <p class="muted" style="margin-top:-6px">Демо-раздел: заявки хранятся только в этом браузере (localStorage), не в базе данных — учёт отгулов не входил в обязательную схему БД/эндпоинтов этого проекта. Врачи отправляют заявку со своего дашборда — решение принимает главный врач.</p>
+        <div class="adm-grid" id="req-tiles"></div>
+        <div class="adm-table-wrap" id="req-table"></div>`;
+      $("req-tiles").innerHTML = [["✎", "Всего заявок", leaveRequests.length], ["◷", "На рассмотрении", pending], ["✚", "Одобрено", approved]].map(([ic, label, n]) => tile(ic, label, n)).join("");
+      lotusAnimateList($("req-tiles"));
+      animateCountUp($("req-tiles"));
+      drawRequestsTable();
+    }
+    function drawRequestsTable() {
+      const sorted = leaveRequests.slice().sort((a, b) => b.created.localeCompare(a.created));
+      $("req-table").innerHTML = sorted.length ? `<table class="adm-table"><thead><tr>
+          <th>Врач</th><th>Дата</th><th>Причина</th><th>Статус</th><th></th></tr></thead>
+        <tbody>${sorted.map(r => `<tr data-id="${r.id}">
+          <td>${esc(r.doctorName)}</td><td>${esc(r.date)}</td><td>${esc(r.reason)}</td>
+          <td>${leaveStatusBadge(r.status)}</td>
+          <td>${r.status === "pending" ? `<div style="display:flex;gap:6px"><button class="btn success" data-act="approve" data-id="${r.id}" style="padding:6px 10px;font-size:13px">Одобрить</button><button class="btn danger" data-act="decline" data-id="${r.id}" style="padding:6px 10px;font-size:13px">Отклонить</button></div>` : "—"}</td>
+        </tr>`).join("")}</tbody></table>`
+        : `<p class="muted" style="padding:16px">Заявок пока нет.</p>`;
+      $("req-table").querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => {
+        const r = leaveRequests.find(x => x.id === b.dataset.id);
+        r.status = b.dataset.act === "approve" ? "approved" : "declined";
+        saveStore(LEAVE_KEY, leaveRequests);
+        notify("Заявка " + (r.status === "approved" ? "одобрена" : "отклонена") + ": " + r.doctorName + " · " + r.date);
+        buildNav();
+        renderRequests();
+      }));
+    }
+
+    /* ---------- Init ----------
+       Раньше здесь читался sessionStorage, чтобы «вспомнить» залогиненного
+       сотрудника по id из публичного STAFF. Теперь единственный источник
+       правды о сессии — сервер: window.lotusSession (api.js) уже выполнил
+       GET /api/auth/me с HttpOnly-cookie и подождать его достаточно, чтобы
+       понять, вошёл ли кто-то и в какой роли — без единого бита в
+       localStorage/sessionStorage на этой странице. */
+    window.lotusSession.then((sessionUser) => {
+      if (sessionUser && sessionUser.doctor) {
+        enterCabinet(sessionUser).catch((e) => {
+          notify(e.message || "Не удалось восстановить сессию.");
+          showLogin();
+        });
+      } else {
+        showLogin();
+      }
+    });
+  });
+  </script>
+</body>
+</html>

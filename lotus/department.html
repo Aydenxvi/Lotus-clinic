@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Отделение — LOTUS CLINIC</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/redesign.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <main id="main" class="wrap section">
+    <div id="content"></div>
+  </main>
+  <div id="site-footer"></div>
+  <script src="js/data.js"></script>
+  <script src="js/ui-icons.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/staff-link.js"></script>
+  <script>
+  lotusReady.then(function () {
+    const id = new URLSearchParams(location.search).get("id");
+    const d = lotusDept(id);
+    const content = document.getElementById("content");
+
+    if (!d) {
+      content.innerHTML = `<div class="kicker">Отделение</div><h1>Отделение не найдено</h1>
+        <p class="lead">Возможно, ссылка устарела. <a href="departments.html">Посмотреть все отделения</a>.</p>`;
+    } else {
+      document.title = `${d.name} — LOTUS CLINIC`;
+
+      const docs = LOTUS.doctors.filter(x => x.dept === d.id);
+
+      content.innerHTML = `
+        <div class="kicker">${d.tag}</div>
+        <h1>${d.icon} ${d.name}</h1>
+        <p class="lead" style="margin-top:12px">${d.desc}</p>
+        <div class="hero-cta" style="margin-top:4px">
+          <a class="btn gold" href="appointment.html?dept=${d.id}">Записаться в отделение</a>
+          <span class="chip" style="padding:10px 16px">Часы работы: ${d.hours}</span>
+        </div>
+
+        <h2 style="margin-top:48px">Когда стоит обратиться</h2>
+        <ul class="symptom-list" id="symptoms"></ul>
+
+        <h2 style="margin-top:40px">Услуги и цены</h2>
+        <table class="price-table" id="prices"></table>
+
+        ${d.checkups && d.checkups.length ? `
+          <h2 style="margin-top:40px">Программы осмотра (check-up)</h2>
+          <div id="checkups"></div>
+        ` : ""}
+
+        <h2 style="margin-top:40px">Оборудование и методы диагностики</h2>
+        <p class="muted">${d.equipment}</p>
+
+        ${docs.length ? `
+          <div class="section-head" style="margin-top:40px">
+            <h2>Врачи отделения</h2>
+          </div>
+          <div class="grid-3" id="dept-docs"></div>
+        ` : ""}
+      `;
+
+      document.getElementById("symptoms").innerHTML = (d.symptoms || []).map(s => `<li>${s}</li>`).join("");
+
+      document.getElementById("prices").innerHTML = d.prices.map(p =>
+        `<tr><td>${p.name}</td><td>${p.price}</td></tr>`
+      ).join("");
+
+      if (d.checkups && d.checkups.length) {
+        document.getElementById("checkups").innerHTML = d.checkups.map(c => `
+          <div class="checkup-card">
+            <h3>${c.name}</h3>
+            <p class="muted" style="margin:6px 0">${c.items}</p>
+            <div class="hero-cta">
+              <a class="btn gold" href="appointment.html?dept=${d.id}">Записаться · ${c.price}</a>
+            </div>
+          </div>`).join("");
+      }
+
+      if (docs.length) {
+        const grid = document.getElementById("dept-docs");
+        grid.innerHTML = docs.map(doc => `
+          <article class="doc stagger-item">
+            <div class="doc-top"><div class="avatar">${doc.initials}</div>
+            <div><h3>${doc.name}</h3><div class="muted">${doc.title}</div><div class="stars">★ ${doc.rating} · ${doc.exp} лет</div></div></div>
+            <div class="card-foot">
+              <a class="btn gold" href="appointment.html?doc=${doc.id}">Записаться</a>
+              <a class="btn ghost" href="doctor.html?id=${doc.id}">Профиль</a>
+            </div>
+          </article>`).join("");
+        lotusAnimateList(grid);
+      }
+    }
+  });
+  </script>
+</body>
+</html>

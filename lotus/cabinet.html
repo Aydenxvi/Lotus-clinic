@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Личный кабинет — LOTUS CLINIC</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/redesign.css">
+  <style>
+    .auth-wrap{max-width:460px;margin:28px auto 0}
+    .pc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+    .pc-who{display:flex;gap:16px;align-items:center}
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+  <main id="main" class="wrap section">
+
+    <!-- AUTH -->
+    <section id="auth-view" hidden>
+      <div class="kicker">Для пациентов</div>
+      <h1>Личный кабинет</h1>
+      <p class="lead" style="margin-top:12px">Войдите, чтобы увидеть свои записи, или зарегистрируйтесь за минуту.</p>
+      <div class="auth-wrap panel">
+        <div class="auth-tabs" id="auth-tabs">
+          <button type="button" data-t="login">Вход</button>
+          <button type="button" data-t="register">Регистрация</button>
+        </div>
+
+        <form id="login-form" autocomplete="off">
+          <label>Телефон или email<input id="l-login" required autocomplete="username"></label>
+          <label>Пароль<input id="l-pass" type="password" required autocomplete="current-password"></label>
+          <p class="auth-error" id="login-error" role="alert"></p>
+          <button class="btn gold" type="submit" style="width:100%">Войти</button>
+        </form>
+
+        <form id="register-form" autocomplete="off" hidden>
+          <div class="form-grid">
+            <label>Имя<input id="r-first" required></label>
+            <label>Фамилия<input id="r-last"></label>
+            <label>Телефон<input id="r-phone" required placeholder="+996"></label>
+            <label>Email (необязательно)<input id="r-email" type="email"></label>
+            <label>Пароль<input id="r-pass" type="password" required></label>
+            <label>Повторите пароль<input id="r-pass2" type="password" required></label>
+          </div>
+          <label style="flex-direction:row;align-items:center;gap:8px;font-weight:500;margin-top:8px">
+            <input type="checkbox" id="r-consent" required style="width:auto"> Согласен(на) на обработку персональных данных
+          </label>
+          <p class="auth-error" id="register-error" role="alert"></p>
+          <button class="btn gold" type="submit" style="width:100%;margin-top:8px">Зарегистрироваться</button>
+        </form>
+        <p class="muted" style="font-size:14px;margin-top:14px">Вход для врачей и персонала — отдельная страница «Для врачей».</p>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="dash-view" hidden>
+      <div class="pc-top">
+        <div class="pc-who">
+          <div class="avatar" id="p-avatar"></div>
+          <div>
+            <div class="kicker" style="margin:0">Пациентский кабинет</div>
+            <h1 id="p-name" style="font-size:clamp(26px,4vw,40px)"></h1>
+          </div>
+        </div>
+        <button class="btn ghost" id="logout">Выйти</button>
+      </div>
+      <p class="lead" style="margin-top:14px">Здесь — ваши реальные записи из базы данных клиники. Анализы, снимки и чат с лечащим врачом появятся в следующих обновлениях.</p>
+      <div class="grid-3" style="margin:24px 0" id="dash-stats"></div>
+      <div class="section-head">
+        <h2>Мои записи</h2>
+        <a class="btn ghost" href="appointment.html">Новая запись</a>
+      </div>
+      <div id="visits" class="grid-2" style="margin-top:16px"></div>
+    </section>
+  </main>
+  <div id="site-footer"></div>
+  <script src="js/data.js"></script>
+  <script src="js/ui-icons.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/staff-link.js"></script>
+  <script>
+  lotusReady.then(async function () {
+    const $ = (id) => document.getElementById(id);
+    const qs = new URLSearchParams(location.search);
+
+    function showAuth(tab) {
+      $("dash-view").hidden = true;
+      $("auth-view").hidden = false;
+      setTab(tab || "login");
+    }
+    function setTab(t) {
+      document.querySelectorAll("#auth-tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+      $("login-form").hidden = t !== "login";
+      $("register-form").hidden = t !== "register";
+    }
+    $("auth-tabs").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-t]"); if (b) setTab(b.dataset.t);
+    });
+
+    // If booking.js sent us here mid-booking (not logged in yet), carry the
+    // chosen slot through login/register and bounce straight back afterward.
+    const resumeSlotId = qs.get("resumeSlotId");
+    const resumeDoc = qs.get("resumeDoc");
+    function resumeUrlOrCabinet() {
+      if (resumeSlotId && resumeDoc) {
+        return `appointment.html?doc=${encodeURIComponent(resumeDoc)}&resumeSlotId=${encodeURIComponent(resumeSlotId)}&resumeDoc=${encodeURIComponent(resumeDoc)}`;
+      }
+      return null;
+    }
+
+    async function afterAuth(patient) {
+      $("auth-view").hidden = true;
+      $("dash-view").hidden = false;
+      $("p-avatar").textContent = (patient.firstName[0] || "") + (patient.lastName ? patient.lastName[0] : "");
+      $("p-name").textContent = [patient.firstName, patient.lastName].filter(Boolean).join(" ");
+      if (window.lotusRefreshAuthNav) lotusRefreshAuthNav();
+      const resumeUrl = resumeUrlOrCabinet();
+      if (resumeUrl) { location.href = resumeUrl; return; }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      await renderDash();
+    }
+
+    $("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const err = $("login-error");
+      err.textContent = "";
+      const btn = e.target.querySelector("button[type=submit]");
+      btn.disabled = true; btn.textContent = "Входим…";
+      try {
+        const res = await lotusApi("/auth/login", { method: "POST", body: { login: $("l-login").value.trim(), password: $("l-pass").value } });
+        if (!res.user.patient) throw new Error("Этот аккаунт не является пациентским. Сотрудникам клиники — страница «Для врачей».");
+        await afterAuth(res.user.patient);
+      } catch (ex) {
+        err.textContent = ex.message || "Неверный логин или пароль. Проверьте данные и попробуйте снова.";
+      } finally {
+        btn.disabled = false; btn.textContent = "Войти";
+      }
+    });
+
+    $("register-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const err = $("register-error");
+      err.textContent = "";
+      const first = $("r-first").value.trim();
+      const phone = $("r-phone").value.trim();
+      const pass = $("r-pass").value;
+      const pass2 = $("r-pass2").value;
+      if (!first || !phone) { err.textContent = "Заполните имя и телефон."; return; }
+      if (pass.length < 8) { err.textContent = "Пароль должен быть не короче 8 символов."; return; }
+      if (pass !== pass2) { err.textContent = "Пароли не совпадают."; return; }
+      if (!$("r-consent").checked) { err.textContent = "Нужно согласие на обработку персональных данных."; return; }
+      const btn = e.target.querySelector("button[type=submit]");
+      btn.disabled = true; btn.textContent = "Регистрируем…";
+      try {
+        const res = await lotusApi("/auth/register", {
+          method: "POST",
+          body: {
+            firstName: first,
+            lastName: $("r-last").value.trim() || undefined,
+            phone,
+            email: $("r-email").value.trim() || undefined,
+            password: pass,
+            consent: true
+          }
+        });
+        toast("Регистрация прошла успешно, " + first + "!");
+        await afterAuth(res.user.patient);
+      } catch (ex) {
+        err.textContent = ex.message || "Не удалось зарегистрироваться. Попробуйте ещё раз.";
+      } finally {
+        btn.disabled = false; btn.textContent = "Зарегистрироваться";
+      }
+    });
+
+    $("logout").addEventListener("click", async () => {
+      try { await lotusApi("/auth/logout", { method: "POST" }); } catch (e) {}
+      if (window.lotusRefreshAuthNav) lotusRefreshAuthNav();
+      showAuth("login");
+      toast("Вы вышли из кабинета.");
+    });
+
+    function fmt(iso) {
+      const dt = new Date(iso);
+      return dt.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) + " · " +
+        dt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    }
+    const STATUS_LABEL = { pending: "Ожидает", confirmed: "Подтверждён", completed: "Завершён", cancelled: "Отменён", no_show: "Не пришёл" };
+
+    async function renderDash() {
+      $("visits").innerHTML = `<p class="muted">Загружаем ваши записи…</p>`;
+      let appointments = [];
+      try {
+        const res = await lotusApi("/appointments/me");
+        appointments = res.appointments || [];
+      } catch (e) {
+        $("visits").innerHTML = `<p class="muted">Не удалось загрузить записи: ${e.message}</p>`;
+        return;
+      }
+      const upcoming = appointments.filter(a => a.status !== "cancelled" && a.status !== "completed");
+      const next = upcoming.slice().sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))[0];
+
+      $("dash-stats").innerHTML = `
+        <article class="stat stagger-item"><div class="muted">Следующий визит</div><div class="n" style="font-size:22px">${next ? fmt(next.scheduledAt) : "нет"}</div></article>
+        <article class="stat stagger-item"><div class="muted">Всего записей</div><div class="n" style="font-size:22px">${appointments.length}</div></article>
+        <article class="stat stagger-item"><div class="muted">Активных</div><div class="n" style="font-size:22px">${upcoming.length}</div></article>`;
+      lotusAnimateList($("dash-stats"));
+
+      const host = $("visits");
+      host.innerHTML = appointments.length
+        ? appointments.map(a => `
+          <article class="panel stagger-item" data-id="${a.id}">
+            <span class="adm-badge ${a.status === "cancelled" ? "bad" : a.status === "completed" ? "neutral" : "warn"}">${STATUS_LABEL[a.status] || a.status}</span>
+            <h3 style="margin-top:10px">${a.doctor ? a.doctor.name : "Врач"}</h3>
+            <p class="muted">${a.doctor ? a.doctor.title : ""} · ${fmt(a.scheduledAt)}</p>
+            <p>${a.reason || "Без комментария"}</p>
+            ${a.status !== "cancelled" && a.status !== "completed" ? `<button class="btn ghost" data-act="cancel">Отменить</button>` : ""}
+          </article>`).join("")
+        : `<p class="muted">Пока пусто. <a href="appointment.html">Запишитесь на приём</a>.</p>`;
+      lotusAnimateList(host);
+      host.querySelectorAll("[data-act=cancel]").forEach(b => b.addEventListener("click", async () => {
+        const card = b.closest("[data-id]");
+        const id = card.dataset.id;
+        b.disabled = true; b.textContent = "Отменяем…";
+        try {
+          await lotusApi(`/appointments/${id}`, { method: "DELETE" });
+          toast("Запись отменена");
+          await renderDash();
+        } catch (e) {
+          toast(e.message || "Не удалось отменить запись");
+          b.disabled = false; b.textContent = "Отменить";
+        }
+      }));
+    }
+
+    const session = await window.lotusSession;
+    if (session && session.patient) {
+      await afterAuth(session.patient);
+    } else {
+      showAuth(qs.get("auth") || "login");
+    }
+  });
+  </script>
+</body>
+</html>

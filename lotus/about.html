@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>О клинике — LOTUS CLINIC</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/redesign.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <main id="main" class="wrap section">
+    <div class="kicker">О клинике</div>
+    <h1>LOTUS CLINIC — медицина высокого качества, доступная каждому</h1>
+    <p class="lead" style="margin-top:16px">Мы объединили передовое диагностическое оборудование, доказательную медицину и заботу о комфорте каждого пациента.</p>
+
+    <h2 style="margin-top:48px">Наша миссия и ценности</h2>
+    <div class="grid-4" id="values" style="margin-top:20px"></div>
+
+    <h2 style="margin-top:48px">LOTUS CLINIC в цифрах</h2>
+    <div class="grid-4" id="stats" style="margin-top:20px"></div>
+
+    <h2 style="margin-top:48px">Главный врач</h2>
+    <div class="grid-2" style="margin-top:20px;align-items:center" id="chief"></div>
+
+    <h2 style="margin-top:48px">Оборудование и технологии</h2>
+    <div class="grid-2" style="margin-top:20px">
+      <article class="panel">
+        <h3>Диагностика</h3>
+        <p class="muted">УЗИ-сканеры экспертного класса, современное цифровое рентген-оборудование, суточные мониторы ЭКГ и АД.</p>
+      </article>
+      <article class="panel">
+        <h3>Автоматизированная лаборатория</h3>
+        <p class="muted">Экспресс-анализаторы, исключающие человеческий фактор, и результаты в личный кабинет за минуты.</p>
+      </article>
+    </div>
+
+    <h2 style="margin-top:48px">Лицензии и аккредитации</h2>
+    <p class="muted">Государственная медицинская лицензия, сертификаты соответствия и дипломы аккредитации клиники — оригиналы доступны на ресепшен и по запросу на <a href="mailto:turgunbaevdooolot@gmail.com" style="color:var(--azura)">почту клиники</a>.</p>
+
+    <h2 style="margin-top:48px">Хроника</h2>
+    <div class="timeline" style="margin-top:24px">
+      <div><b>2019</b><p class="muted">Заложен фундамент клиники и первый кабинет приёма.</p></div>
+      <div><b>2022</b><p class="muted">Открыта собственная лаборатория с экспресс-диагностикой.</p></div>
+      <div><b>2024</b><p class="muted">Запущена онлайн-запись и личный кабинет пациента.</p></div>
+      <div><b>2026</b><p class="muted">10+ отделений, кабинет врача с электронной медицинской картой.</p></div>
+    </div>
+  </main>
+  <div id="site-footer"></div>
+  <script src="js/data.js"></script>
+  <script src="js/ui-icons.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/staff-link.js"></script>
+  <script>
+    const values = document.getElementById("values");
+    values.innerHTML = [
+      ["Забота и внимательность", "Слушаем пациента, а не просто смотрим на симптомы. Без формальных приёмов и долгих очередей."],
+      ["Доказательная медицина", "Назначаем только обследования и лечение, эффективность которых подтверждена исследованиями."],
+      ["Безопасность и стерильность", "Строгий контроль санитарных норм и современное оборудование для стерилизации."],
+      ["Цифровой комфорт", "Быстрая запись онлайн, электронные карты, доступ к результатам анализов через сайт."]
+    ].map(([t, d]) => `<article class="panel stagger-item"><h3>${t}</h3><p class="muted" style="margin-top:8px">${d}</p></article>`).join("");
+    lotusAnimateList(values);
+
+    const stats = document.getElementById("stats");
+    const statIcons = ["◇", "✚", "▣", "◷"];
+    stats.innerHTML = LOTUS.stats.map((s, i) =>
+      `<article class="stat stagger-item"><div class="icon">${statIcons[i] || "✦"}</div><div><div class="n">${s.n}${s.suffix}</div><div class="muted">${s.label}</div></div></article>`
+    ).join("");
+    lotusAnimateList(stats);
+
+    const dr = lotusDoc("d0");
+    document.getElementById("chief").innerHTML = `
+      <article class="panel">
+        <div class="doc-top" style="margin-bottom:0">
+          <div class="avatar" style="width:72px;height:72px;font-size:24px">${dr.initials}</div>
+          <div><h3>${dr.name}</h3><div class="muted">${dr.title}</div></div>
+        </div>
+      </article>
+      <blockquote class="panel" style="margin:0;font-style:italic;font-size:18px">
+        «Наша цель — сделать так, чтобы посещение поликлиники ассоциировалось не со страхом и стрессом, а с уверенностью, поддержкой и скорым выздоровлением».
+      </blockquote>`;
+  </script>
+</body>
+</html>

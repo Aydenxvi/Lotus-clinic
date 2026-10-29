@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Контакты — LOTUS CLINIC</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/redesign.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <main id="main" class="wrap section">
+    <div class="kicker">Как нас найти</div>
+    <h1>Контакты</h1>
+    <div class="grid-2" style="margin-top:28px">
+      <article class="panel">
+        <h3>LOTUS CLINIC</h3>
+        <p style="margin-top:12px" id="c-address"></p>
+        <p><a id="c-phone-link" style="font-family:var(--font-d);font-weight:600;font-size:24px;color:var(--azura)"></a></p>
+        <p class="muted" id="c-hours"></p>
+        <div class="metric"><span>Скорая помощь</span><b>103 / 112</b></div>
+        <div class="metric"><span>Email</span><b id="c-email"></b></div>
+        <div class="metric"><span>Приёмная главного врача</span><b>по email, Пн–Пт 09:00–17:00</b></div>
+        <div class="social-row" style="margin-top:16px">
+          <a class="btn ghost" id="c-wa" target="_blank" rel="noopener">WhatsApp</a>
+          <a class="btn ghost" id="c-tg" target="_blank" rel="noopener">Telegram</a>
+        </div>
+      </article>
+      <form class="panel" id="mail">
+        <h3>Форма обратной связи</h3>
+        <label>Ваше имя<input required name="name"></label>
+        <label>Телефон или email<input required name="contact"></label>
+        <label>Тема обращения
+          <select name="topic">
+            <option>Общий вопрос</option>
+            <option>Вопрос к главному врачу</option>
+            <option>Отзыв или пожелание</option>
+            <option>Страховые случаи (ДМС)</option>
+          </select>
+        </label>
+        <label>Сообщение<textarea required name="msg"></textarea></label>
+        <label style="flex-direction:row;align-items:center;gap:8px;font-weight:500">
+          <input type="checkbox" required style="width:auto"> Согласен(на) на обработку персональных данных
+        </label>
+        <button class="btn gold" type="submit">Отправить сообщение</button>
+      </form>
+    </div>
+    <div class="panel" style="margin-top:16px;padding:0;overflow:hidden">
+      <iframe class="map-embed" id="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      <div style="padding:18px 22px">
+        <p class="muted" style="margin:0">Ориентир: напротив ТЦ «Глобус». Если не получается найти вход — позвоните, подскажем.</p>
+      </div>
+    </div>
+  </main>
+  <div id="site-footer"></div>
+  <script src="js/data.js"></script>
+  <script src="js/ui-icons.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/staff-link.js"></script>
+  <script>
+    const B = LOTUS.brand;
+    document.getElementById("c-address").textContent = B.address;
+    const phoneLink = document.getElementById("c-phone-link");
+    phoneLink.href = "tel:" + B.phoneTel;
+    phoneLink.textContent = B.phone;
+    document.getElementById("c-hours").innerHTML = `Пн–Пт ${B.hoursWeekday} · Сб–Вс ${B.hoursWeekend}<br>Лаборатория и приёмный покой — ${B.hoursLab}`;
+    document.getElementById("c-email").innerHTML = `<a href="mailto:${B.email}">${B.email}</a>`;
+    document.getElementById("c-wa").href = B.whatsapp;
+    document.getElementById("c-tg").href = B.telegram;
+    document.getElementById("map").src = B.mapsEmbed;
+
+    document.getElementById("mail").addEventListener("submit", (e) => {
+      e.preventDefault();
+      toast("Спасибо! Сообщение отправлено. Администратор свяжется с вами в течение 15 минут.");
+      e.target.reset();
+    });
+  </script>
+</body>
+</html>

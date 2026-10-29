@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Врачи — LOTUS CLINIC</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/redesign.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <main id="main" class="wrap section">
+    <div class="kicker">Экспертный состав</div>
+    <h1>Врачи</h1>
+    <p class="lead">Фильтры по отделению, стажу и свободному слоту. Рейтинги — из отзывов пациентов поликлиники.</p>
+    <div class="filters">
+      <input class="search" id="q" placeholder="Имя, специальность, язык…">
+      <select id="dept" class="search" style="flex:0 0 220px"></select>
+      <select id="sort" class="search" style="flex:0 0 200px">
+        <option value="rating">По рейтингу</option>
+        <option value="exp">По стажу</option>
+      </select>
+    </div>
+    <div class="grid-3" id="list"></div>
+  </main>
+  <div id="site-footer"></div>
+  <script src="js/data.js"></script>
+  <script src="js/ui-icons.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/staff-link.js"></script>
+  <script>
+  lotusReady.then(function () {
+    const sel = document.getElementById("dept");
+    sel.innerHTML = `<option value="">Все отделения</option>` + LOTUS.departments.map(d => `<option value="${d.id}">${d.name}</option>`).join("");
+    const list = document.getElementById("list");
+
+    function render() {
+      const q = document.getElementById("q").value.toLowerCase();
+      const dept = sel.value;
+      const sort = document.getElementById("sort").value;
+      let items = LOTUS.doctors.filter(d => {
+        const hay = (d.name + d.title + d.bio + (d.specialRole || "") + d.langs.join(" ")).toLowerCase();
+        return hay.includes(q) && (!dept || d.dept === dept);
+      });
+      if (sort === "rating") items = items.slice().sort((a, b) => b.rating - a.rating);
+      if (sort === "exp") items = items.slice().sort((a, b) => b.exp - a.exp);
+
+      list.innerHTML = items.map(d => `
+        <article class="doc stagger-item${d.specialRole ? ' doc--heart' : ''}">
+          ${d.specialRole ? `<span class="malika-ribbon">♡ ${d.specialRole}</span>` : ''}
+          <div class="doc-top">
+            <div class="avatar">${d.initials}</div>
+            <div>
+              <h3>${d.name}${d.badge ? `<span class="doc-badge">${d.badge}</span>` : ""}</h3>
+              <div class="muted">${d.title}</div>
+              <div class="stars">★ ${d.rating} · ${d.reviews} отзывов · ${d.exp} лет</div>
+            </div>
+          </div>
+          <p class="muted">${d.bio}</p>
+          ${d.specialRole ? `<p class="malika-doc-note">${d.specialNote}</p>` : ''}
+          <p class="muted" style="font-size:15px">Приём: <b style="color:var(--azura)">${d.price || "по записи"}</b></p>
+          <div class="tags">${d.langs.map(l => `<span class="chip">${l}</span>`).join("")}</div>
+          <div class="card-foot">
+            <a class="btn gold" href="appointment.html?doc=${d.id}">Записаться</a>
+            <a class="btn ghost" href="doctor.html?id=${d.id}">Подробнее</a>
+          </div>
+        </article>
+      `).join("") || `<p class="muted">Никого не нашли. Снимите фильтр.</p>`;
+      lotusAnimateList(list);
+    }
+    document.getElementById("q").addEventListener("input", render);
+    sel.addEventListener("change", render);
+    document.getElementById("sort").addEventListener("change", render);
+    render();
+  });
+  </script>
+</body>
+</html>

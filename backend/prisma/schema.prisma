@@ -1,0 +1,290 @@
+// LOTUS CLINIC — relational schema (MySQL via Prisma)
+// Design notes:
+// - Role is decided and stored server-side only (User.role). Clients never send a role.
+// - Doctor.id / Department.id keep the original string codes from js/data.js (e.g. "d5", "peds")
+//   so the existing frontend URLs (doctor.html?id=d5) keep working unchanged.
+// - AppointmentSlot is a first-class row: booking a slot is one transaction that flips
+//   slot.status open -> booked and creates the Appointment, guarded by a DB unique
+//   constraint (doctorId, slotAt) AND the slot's own unique id — two patients racing for
+//   the same slot cannot both succeed (see services/booking.service.js).
+// - Rich marketing/presentation content that used to live only in js/data.js (bios,
+//   education, patient-visible reviews, department prose, equipment, checkup bundles)
+//   is migrated into JSON columns here, so the frontend can become fully API-driven.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  patient
+  doctor
+  chief
+}
+
+enum AppointmentStatus {
+  pending
+  confirmed
+  completed
+  cancelled
+  no_show
+}
+
+enum SlotStatus {
+  open
+  booked
+  blocked
+}
+
+model User {
+  id           BigInt   @id @default(autoincrement())
+  // Patients log in with phone or email; staff log in with a username ("login" in the old demo data).
+  username     String?  @unique @db.VarChar(80)
+  email        String?  @unique @db.VarChar(190)
+  phone        String?  @unique @db.VarChar(40)
+  passwordHash String   @db.VarChar(255)
+  role         Role
+  active       Boolean  @default(true)
+  mustChangePassword Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastLoginAt  DateTime?
+
+  patient      Patient?
+  doctor       Doctor?
+  auditLogs    AuditLog[]
+
+  @@index([role])
+  @@map("users")
+}
+
+model Patient {
+  id           BigInt   @id @default(autoincrement())
+  userId       BigInt   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName    String   @db.VarChar(120)
+  lastName     String?  @db.VarChar(120)
+  phone        String   @db.VarChar(40)
+  email        String?  @db.VarChar(190)
+  dob          DateTime? @db.Date
+  consentAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  appointments Appointment[]
+  medicalRecord MedicalRecord?
+  consultations Consultation[]
+
+  @@index([phone])
+  @@map("patients")
+}
+
+model Department {
+  // Keeps the original slug ids from js/data.js: "therapy", "cardio", "peds", ...
+  id          String   @id @db.VarChar(40)
+  name        String   @db.VarChar(190)
+  tag         String?  @db.VarChar(80)
+  icon        String?  @db.VarChar(20)
+  wait        String?  @db.VarChar(40)
+  hours       String?  @db.VarChar(190)
+  desc        String?  @db.Text
+  servicesTags Json?   // short highlight chips shown on the department card, e.g. ["ЭхоКГ 4D", ...]
+  symptoms    Json?    // list of symptom strings used for search matching
+  equipment   String?  @db.Text
+  checkups    Json?    // bundled check-up programs [{name, items, price}]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  doctors     Doctor[]
+  services    Service[]
+
+  @@map("departments")
+}
+
+model Doctor {
+  // Keeps the original ids from js/data.js: "d0".."d23".
+  id            String   @id @db.VarChar(40)
+  userId        BigInt?  @unique
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  departmentId  String
+  department    Department @relation(fields: [departmentId], references: [id])
+  name          String   @db.VarChar(190)
+  title         String?  @db.VarChar(190)
+  exp           Int?     // years of experience
+  rating        Decimal? @db.Decimal(2, 1)
+  reviewsCount  Int      @default(0)
+  langs         Json?    // ["RU","KG","EN"]
+  price         String?  @db.VarChar(40) // display price, e.g. "900 сом"
+  ageGroup      String?  @db.VarChar(190)
+  bio           String?  @db.Text
+  initials      String?  @db.VarChar(10)
+  badge         String?  @db.VarChar(190)
+  // HR-ish fields used by the admin "staff management" screen. Optional and
+  // separate from clinical data — kept here rather than invented a new table
+  // since they are 1:1 with a single staff member.
+  gender        String?  @db.VarChar(5)
+  mobile        String?  @db.VarChar(40)
+  idNum         String?  @db.VarChar(40)
+  dob           DateTime? @db.Date
+  address       String?  @db.Text
+  // Decorative, non-medical, non-access public tribute fields (see MALIKA_CHANGELOG_RU.md).
+  // Never used for authorization and never confused with title/role.
+  specialRole   String?  @db.VarChar(190)
+  specialNote   String?  @db.Text
+  education     Json?    // { uni, residency, courses }
+  reviewsList   Json?    // patient-facing testimonials shown on the public profile
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  scheduleTemplates DoctorScheduleTemplate[]
+  availabilityOverrides DoctorAvailabilityOverride[]
+  slots         AppointmentSlot[]
+  appointments  Appointment[]
+  consultations Consultation[]
+
+  @@index([departmentId])
+  @@map("doctors")
+}
+
+// Weekly recurring working hours, e.g. "Mon-Sat 09:00,11:00,14:30".
+model DoctorScheduleTemplate {
+  id          BigInt   @id @default(autoincrement())
+  doctorId    String
+  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  weekday     Int      // 0=Sunday .. 6=Saturday
+  startTime   String   @db.VarChar(5) // "09:00"
+  slotMinutes Int      @default(30)
+  slotsPerDay Int      @default(1)    // how many consecutive slots starting at startTime
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([doctorId, weekday])
+  @@map("doctor_schedule_templates")
+}
+
+// Ad-hoc overrides: a doctor blocking a specific date (day off) or opening an extra slot.
+model DoctorAvailabilityOverride {
+  id        BigInt   @id @default(autoincrement())
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  type      String   @db.VarChar(20) // "day_off" | "extra_slot"
+  startTime String?  @db.VarChar(5)  // only for "extra_slot"
+  reason    String?  @db.VarChar(255)
+  createdAt DateTime @default(now())
+
+  @@index([doctorId, date])
+  @@map("doctor_availability_overrides")
+}
+
+// A concrete bookable instance generated from the weekly template (+ overrides).
+// Booking = transaction that moves this row open -> booked while creating the Appointment.
+model AppointmentSlot {
+  id          BigInt     @id @default(autoincrement())
+  doctorId    String
+  doctor      Doctor     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  slotAt      DateTime   // exact date+time of the slot
+  status      SlotStatus @default(open)
+  createdAt   DateTime   @default(now())
+
+  appointment Appointment?
+
+  @@unique([doctorId, slotAt]) // the actual double-booking guard at the DB level
+  @@index([doctorId, status, slotAt])
+  @@map("appointment_slots")
+}
+
+model Appointment {
+  id            BigInt   @id @default(autoincrement())
+  patientId     BigInt
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId      String
+  doctor        Doctor   @relation(fields: [doctorId], references: [id])
+  slotId        BigInt   @unique
+  slot          AppointmentSlot @relation(fields: [slotId], references: [id])
+  scheduledAt   DateTime // denormalized copy of slot.slotAt for fast sorting/filtering
+  status        AppointmentStatus @default(pending)
+  reason        String?  @db.VarChar(255)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  cancelledAt   DateTime?
+  cancelReason  String?  @db.VarChar(255)
+
+  consultation  Consultation?
+
+  @@index([doctorId, scheduledAt])
+  @@index([patientId, scheduledAt])
+  @@map("appointments")
+}
+
+// One clinical note per appointment ("encounter" in the original blueprint).
+model Consultation {
+  id             BigInt   @id @default(autoincrement())
+  appointmentId  BigInt   @unique
+  appointment    Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  doctorId       String
+  doctor         Doctor   @relation(fields: [doctorId], references: [id])
+  patientId      BigInt
+  patient        Patient  @relation(fields: [patientId], references: [id])
+  anamnesis      String?  @db.Text
+  icd10Code      String?  @db.VarChar(10)
+  icd10Name      String?  @db.VarChar(255)
+  treatmentNote  String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@map("consultations")
+}
+
+// Longer-lived chart header, separate from any one visit.
+model MedicalRecord {
+  id               BigInt   @id @default(autoincrement())
+  patientId        BigInt   @unique
+  patient          Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  bloodType        String?  @db.VarChar(10)
+  allergies        String?  @db.Text
+  chronicConditions String? @db.Text
+  updatedByUserId  BigInt?
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
+
+  @@map("medical_records")
+}
+
+model Service {
+  id            BigInt   @id @default(autoincrement())
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  name          String   @db.VarChar(190)
+  priceLabel    String?  @db.VarChar(80)  // "900 сом", "от 3 500 сом", "по программе"
+  priceAmount   Decimal? @db.Decimal(10, 2) // parsed numeric amount when the label is a plain figure
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@index([departmentId])
+  @@map("services")
+}
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  userId     BigInt?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   @db.VarChar(100) // "login", "view_patient_chart", "update_price_list", ...
+  targetType String?  @db.VarChar(60)
+  targetId   String?  @db.VarChar(60)
+  meta       Json?
+  ip         String?  @db.VarChar(64)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@map("audit_logs")
+}

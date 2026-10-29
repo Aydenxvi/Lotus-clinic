@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Врач — LOTUS CLINIC</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/redesign.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <main id="main" class="wrap section">
+    <div id="content"></div>
+  </main>
+  <div id="site-footer"></div>
+  <script src="js/data.js"></script>
+  <script src="js/ui-icons.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/staff-link.js"></script>
+  <script>
+  lotusReady.then(async function () {
+    const id = new URLSearchParams(location.search).get("id");
+    const d = lotusDoc(id);
+    const content = document.getElementById("content");
+
+    if (!d) {
+      content.innerHTML = `<div class="kicker">Врач</div><h1>Врач не найден</h1>
+        <p class="lead">Возможно, ссылка устарела. <a href="doctors.html">Посмотреть всех врачей</a>.</p>`;
+    } else {
+      document.title = `${d.name} — LOTUS CLINIC`;
+      const dept = lotusDept(d.dept);
+      const reviewKey = "lotus-reviews-" + d.id;
+      const extraReviews = JSON.parse(localStorage.getItem(reviewKey) || "[]");
+
+      content.innerHTML = `
+        <div class="hero-card" style="padding:28px 30px">
+          <div class="doc-top" style="margin-bottom:0;align-items:flex-start">
+            <div class="avatar" style="width:88px;height:88px;font-size:28px">${d.initials}</div>
+            <div>
+              <div class="kicker" style="margin-bottom:4px">${dept ? dept.name : ""}${d.badge ? " · " + d.badge : ""}</div>
+              <h1 style="font-size:clamp(26px,4vw,38px)">${d.name}</h1>
+              <div class="muted">${d.title} · ${d.exp} лет стажа · ${d.ageGroup}</div>
+              <div class="stars" style="margin-top:6px">★ ${d.rating} / 5.0 · ${d.reviews} отзывов</div>
+            </div>
+          </div>
+          ${d.specialRole ? `<div class="malika-profile-tribute">
+            <span class="malika-tribute-heart" aria-hidden="true">♡</span>
+            <div><strong>${d.specialRole}</strong><p>${d.specialNote}</p></div>
+          </div>` : ''}
+          <div class="hero-cta" style="margin-top:20px">
+            <a class="btn gold" href="appointment.html?doc=${d.id}">Записаться на приём</a>
+            <span class="chip" style="padding:10px 16px">Приём: ${d.price}</span>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:32px;align-items:start">
+          <div>
+            <h2>Образование и квалификация</h2>
+            <div class="metric"><span>Высшее образование</span><b style="text-align:right;max-width:60%">${d.education.uni}</b></div>
+            <div class="metric"><span>Ординатура</span><b style="text-align:right;max-width:60%">${d.education.residency}</b></div>
+            <div class="metric"><span>Повышение квалификации</span><b style="text-align:right;max-width:60%">${d.education.courses}</b></div>
+
+            <h2 style="margin-top:32px">С чем можно обратиться</h2>
+            <ul class="symptom-list">${(dept ? dept.symptoms : []).map(s => `<li>${s}</li>`).join("")}</ul>
+          </div>
+
+          <div>
+            <h2>Ближайшие свободные окна</h2>
+            <div class="slots" style="margin-top:16px" id="slots">
+              <p class="muted">Загружаем расписание…</p>
+            </div>
+            <p class="muted" style="margin-top:12px;font-size:15px">Нажмите на время — слот будет выбран прямо в записи.</p>
+          </div>
+        </div>
+
+        <div class="section-head" style="margin-top:44px">
+          <h2>Отзывы пациентов</h2>
+        </div>
+        <div id="reviews"></div>
+
+        <h3 style="margin-top:28px">Оставить отзыв о враче</h3>
+        <form class="form-grid panel" id="review-form" style="margin-top:12px">
+          <label>Ваше имя<input required id="rv-name"></label>
+          <label>Оценка
+            <select id="rv-rating"><option value="5">5 — отлично</option><option value="4">4 — хорошо</option><option value="3">3 — нормально</option></select>
+          </label>
+          <label style="grid-column:1/-1">Комментарий<textarea required id="rv-text" placeholder="Расскажите о приёме"></textarea></label>
+          <div style="grid-column:1/-1"><button class="btn gold" type="submit">Отправить отзыв</button></div>
+        </form>
+        <p class="muted" style="font-size:14px;margin-top:8px">Отзыв публикуется сразу в этой демонстрации; в рабочей версии — после модерации.</p>
+      `;
+
+      function renderReviews() {
+        const all = (d.reviewsList || []).concat(extraReviews);
+        document.getElementById("reviews").innerHTML = all.length
+          ? all.map(r => `
+            <article class="review-card">
+              <div class="review-head"><span>${r.name}</span><span class="stars">★ ${r.rating}</span></div>
+              <p class="muted" style="margin-bottom:4px">${r.text}</p>
+              <p class="muted" style="font-size:14px">${r.date}</p>
+            </article>`).join("")
+          : `<p class="muted">Пока нет отзывов об этом враче.</p>`;
+      }
+      renderReviews();
+
+      document.getElementById("review-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const r = {
+          name: document.getElementById("rv-name").value.trim() || "Пациент",
+          rating: Number(document.getElementById("rv-rating").value),
+          text: document.getElementById("rv-text").value.trim(),
+          date: "сейчас"
+        };
+        extraReviews.unshift(r);
+        localStorage.setItem(reviewKey, JSON.stringify(extraReviews));
+        renderReviews();
+        e.target.reset();
+        toast("Спасибо! Отзыв добавлен.");
+      });
+
+      // Real availability from the backend (appointment_slots), not the old
+      // static daily-times array — a slot now carries an id tied to one exact
+      // date+time and can really be double-booking-protected when reserved.
+      const slotsHost = document.getElementById("slots");
+      try {
+        const res = await lotusApi(`/doctors/${encodeURIComponent(d.id)}/available-slots?days=14`);
+        const upcoming = (res.slots || []).slice(0, 8);
+        slotsHost.innerHTML = upcoming.length
+          ? upcoming.map((s) => {
+              const dt = new Date(s.slotAt);
+              const label = dt.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) + " · " +
+                dt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+              return `<a class="chip" style="padding:11px 20px;font-weight:700" href="appointment.html?doc=${encodeURIComponent(d.id)}&slotId=${encodeURIComponent(s.id)}">${label}</a>`;
+            }).join("")
+          : `<p class="muted">Свободных окон пока нет, но вы можете начать запись — дальше можно выбрать другую дату.</p>`;
+      } catch (e) {
+        slotsHost.innerHTML = `<p class="muted">Не удалось загрузить расписание. <a href="appointment.html?doc=${encodeURIComponent(d.id)}">Перейти к записи</a>.</p>`;
+      }
+    }
+  });
+  </script>
+</body>
+</html>
