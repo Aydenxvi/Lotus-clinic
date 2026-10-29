@@ -934,34 +934,69 @@
       });
     }
 
-    /* История болезни — настоящая медкарта пациента (RBAC: GET
-       /api/doctor/patients/:id отдаёт её только если у этого врача
-       действительно есть/был приём с этим пациентом — иначе сервер вернёт
-       403, независимо от того, что показывает эта страница). */
+    /* LOTUS_EMR_V2 — расширенная история консультаций из облачной БД.
+       Доступ к сведениям проверяет сервер GET /api/doctor/patients/:id. */
     async function historyModal(item) {
-      openModal(`<h3>${esc(item.patient.name)}</h3><p class="muted">Загружаем карту пациента…</p>`);
+      openModal(`<h3>${esc(item.patient.name)}</h3><p class="muted">Загружаем медицинскую карту…</p>`);
       let data;
       try {
-        data = await lotusApi("/doctor/patients/" + item.patient.id);
+        data = await lotusApi("/doctor/patients/" + encodeURIComponent(item.patient.id));
       } catch (ex) {
         openModal(`<h3>${esc(item.patient.name)}</h3>
-          <p class="muted">Не удалось загрузить карту пациента: ${esc(ex.message || String(ex))}</p>
+          <p class="muted">Не удалось загрузить медкарту: ${esc(ex.message || String(ex))}</p>
           <div class="row"><button class="btn gold" data-close>Закрыть</button></div>`);
         return;
       }
-      const p = data.patient, rec = data.medicalRecord, consults = data.consultations || [];
-      openModal(`<h3>${esc(p.firstName)} ${esc(p.lastName || "")}</h3>
-        <p class="muted">${p.dob ? new Date(p.dob).toLocaleDateString("ru-RU") : "Дата рождения не указана"} · тел. ${esc(p.phone || "—")}</p>
-        ${rec
-          ? `<div class="metric"><span>Группа крови</span><b>${esc(rec.bloodType || "не указана")}</b></div>
-             <div class="metric"><span>Аллергии</span><b>${esc(rec.allergies || "не указаны")}</b></div>
-             <div class="metric"><span>Хронические состояния</span><b>${esc(rec.chronicConditions || "не указаны")}</b></div>`
-          : `<p class="muted">Медкарта (аллергии, хронические состояния) пока не заполнена.</p>`}
-        <ul class="dc-hist">${consults.length
-          ? consults.map(c => `<li><b>${new Date(c.createdAt).toLocaleDateString("ru-RU")}</b>${esc(c.icd10Name || c.icd10Code || "без диагноза")}${c.treatmentNote ? " — " + esc(c.treatmentNote) : ""}</li>`).join("")
-          : "<li>Записей о предыдущих приёмах пока нет.</li>"}</ul>
-        <div class="row"><button class="btn gold" data-close>Закрыть</button></div>`);
+
+      const p = data.patient || {};
+      const rec = data.medicalRecord;
+      const consults = Array.isArray(data.consultations) ? data.consultations : [];
+      const plain = (value, fallback = "Не указано") => {
+        const str = value == null ? "" : String(value).trim();
+        return esc(str || fallback);
+      };
+      const lines = (value) => plain(value).replace(/\r?\n/g, "<br>");
+      const dateLabel = (value) => {
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? "Дата не указана" : d.toLocaleString("ru-RU", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      };
+      const sorted = [...consults].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const entries = sorted.length
+        ? sorted.map((c, index) => {
+            const diagnosis = [c.icd10Code, c.icd10Name].filter(Boolean).map(v => String(v).trim()).filter(Boolean).join(" · ");
+            return `<article class="lotus-emr-entry" style="padding:16px;border:1px solid var(--border,#e5def4);border-radius:14px;background:var(--bg-2,#faf8ff);margin:12px 0">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+                <strong>Консультация №${sorted.length - index}</strong>
+                <span class="muted" style="font-size:13px">${plain(dateLabel(c.createdAt))}</span>
+              </div>
+              <div style="display:grid;gap:12px">
+                <div><div class="muted" style="font-size:13px;margin-bottom:4px">Жалобы и анамнез</div><div style="overflow-wrap:anywhere;white-space:normal">${lines(c.anamnesis)}</div></div>
+                <div><div class="muted" style="font-size:13px;margin-bottom:4px">Диагноз (МКБ-10)</div><div style="overflow-wrap:anywhere">${plain(diagnosis)}</div></div>
+                <div><div class="muted" style="font-size:13px;margin-bottom:4px">Лечение и рекомендации</div><div style="overflow-wrap:anywhere">${lines(c.treatmentNote)}</div></div>
+              </div>
+            </article>`;
+          }).join("")
+        : `<p class="muted" style="padding:14px 0">Предыдущих консультаций пока нет. После завершения приёма записи врача появятся здесь.</p>`;
+
+      openModal(`<div style="max-width:680px">
+        <h3 style="margin-bottom:6px">Медицинская карта пациента</h3>
+        <p style="font-size:18px;font-weight:650;margin:0 0 5px">${plain([p.firstName, p.lastName].filter(Boolean).join(" "), "Пациент")}</p>
+        <p class="muted" style="margin:0 0 18px">${p.dob ? plain(new Date(p.dob).toLocaleDateString("ru-RU")) : "Дата рождения не указана"} · тел. ${plain(p.phone, "—")}</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px">
+          <div class="metric"><span>Группа крови</span><b>${plain(rec && rec.bloodType)}</b></div>
+          <div class="metric"><span>Аллергии</span><b style="overflow-wrap:anywhere">${plain(rec && rec.allergies)}</b></div>
+          <div class="metric"><span>Хронические состояния</span><b style="overflow-wrap:anywhere">${plain(rec && rec.chronicConditions)}</b></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <h4 style="margin:0">История консультаций</h4>
+          <span class="muted">Записей: ${sorted.length}</span>
+        </div>
+        <div style="max-height:min(55vh,540px);overflow-y:auto;overscroll-behavior:contain;padding-right:4px" aria-label="История консультаций">${entries}</div>
+        <p class="muted" style="font-size:12px;margin-top:10px">Доступ к истории ограничен пациентами данного врача. Медицинские сведения хранятся на сервере.</p>
+        <div class="row"><button class="btn gold" data-close>Закрыть</button></div>
+      </div>`);
     }
+
 
     /* ============================================================
        РАЗДЕЛ: Персонал (Staff Management)
