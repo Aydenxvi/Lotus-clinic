@@ -4,6 +4,7 @@ const { requireAuth, requireRole } = require("../middleware/auth");
 const { doubleCsrfProtection } = require("../middleware/csrf");
 const admin = require("../controllers/admin.controller");
 const operations = require("../controllers/operations.controller");
+const clinical = require("../controllers/clinical-operations.controller");
 
 const router = express.Router();
 
@@ -13,6 +14,12 @@ const router = express.Router();
 // hidden in the UI, or a direct API call would let anyone register staff.
 router.use(requireAuth, requireRole("chief"));
 
+router.get("/labs", asyncHandler(clinical.listAdminLabs));
+router.patch("/labs/:id", doubleCsrfProtection, asyncHandler(clinical.advanceLabStatus));
+router.get("/pharmacy", asyncHandler(clinical.getAdminPharmacy));
+router.post("/pharmacy/items", doubleCsrfProtection, asyncHandler(clinical.createItem));
+router.patch("/pharmacy/items/:id", doubleCsrfProtection, asyncHandler(clinical.updateItem));
+router.delete("/pharmacy/items/:id", doubleCsrfProtection, asyncHandler(clinical.deactivateItem));
 router.get("/rooms", asyncHandler(operations.listAdminRooms));
 router.patch("/rooms/:id", doubleCsrfProtection, asyncHandler(operations.updateAdminRoom));
 router.get("/leaves", asyncHandler(operations.listAdminLeaves));

@@ -233,68 +233,9 @@
     }
 
     /* ============================================================
-       Данные админ-панели (localStorage, демо-уровень — без бэкенда).
+       Backend-backed staff / laboratory / pharmacy data.
+       No operational data is persisted in browser localStorage.
        ============================================================ */
-    const STAFF_KEY = "lotus-staff-directory";
-    const PHARM_KEY = "lotus-pharmacy-stock";
-    const LAB_KEY = "lotus-lab-queue";
-    const PATIENTS_KEY = "lotus-patients";
-    const ISSUE_KEY = "lotus-pharmacy-issues";
-
-    function loadStore(key, seedFn) {
-      try {
-        const saved = JSON.parse(localStorage.getItem(key));
-        if (saved) return saved;
-      } catch (e) {}
-      const seeded = seedFn();
-      try { localStorage.setItem(key, JSON.stringify(seeded)); } catch (e) {}
-      return seeded;
-    }
-    function saveStore(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
-
-    const GENDER = { d0: "ж", d7: "м", d1: "м", d2: "м", d3: "м", d4: "м", d5: "ж", d6: "м", d8: "ж" };
-    const MOBILES = ["+996 555 10 20 30", "+996 700 22 11 09", "+996 501 44 55 66", "+996 772 65 43 21", "+996 555 90 12 34", "+996 700 77 88 99", "+996 501 33 22 11", "+996 772 15 25 35", "+996 555 60 61 62"];
-    function seedStaff() {
-      return LOTUS.doctors.map((d, i) => {
-        const parts = d.name.split(" ");
-        return {
-          id: "st-" + d.id,
-          firstName: parts[0],
-          lastName: parts.slice(1).join(" "),
-          role: d.title,
-          gender: GENDER[d.id] || "м",
-          email: d.id + "@lotos.kg",
-          mobile: MOBILES[i % MOBILES.length],
-          address: "г. Бишкек, ул. Масалиева 74",
-          idNum: "2026" + String(10000000 + i * 137).slice(0, 10),
-          dob: (2026 - 28 - d.exp) + "-0" + ((i % 9) + 1) + "-1" + (i % 8),
-          status: "Активен"
-        };
-      });
-    }
-    function seedPharmacy() {
-      const rows = [
-        ["Парацетамол 500мг табл.", "2027-05-01", "2025-05-01", 45, 120],
-        ["Амоксициллин 500мг капс.", "2026-11-20", "2024-11-20", 180, 0],
-        ["Ибупрофен 400мг табл.", "2027-02-15", "2025-02-15", 60, 85],
-        ["Лозартан 50мг табл.", "2026-12-01", "2024-12-01", 210, 0],
-        ["Метформин 850мг табл.", "2027-06-10", "2025-06-10", 150, 60],
-        ["Аторвастатин 20мг табл.", "2026-11-30", "2024-11-30", 240, 5],
-        ["Инсулин Гларгин, картридж", "2026-11-05", "2025-01-05", 980, 0],
-        ["Омепразол 20мг капс.", "2027-08-01", "2025-08-01", 70, 200],
-        ["Бисопролол 5мг табл.", "2026-12-20", "2024-12-20", 90, 3],
-        ["Физраствор NaCl 0.9%, 500мл", "2028-01-01", "2025-01-01", 55, 300]
-      ];
-      return rows.map((r, i) => ({ id: "ph-" + (i + 1), name: r[0], expire: r[1], manufacture: r[2], price: r[3], qty: r[4] }));
-    }
-    function seedLab() {
-      const names = ["Айгуль Сыдыкова", "Нурлан Асанов", "Ирина Соколова", "Дмитрий Орлов", "Елизавета Ермакова", "Галина Андреева", "Светлана Крылова", "Татьяна Мельникова"];
-      const tests = ["Общий анализ крови", "Биохимия (15 показателей)", "ЭКГ с расшифровкой", "Онкомаркеры", "МРТ головного мозга", "ПЦР-тест", "Гликированный гемоглобин", "Липидограмма"];
-      const statuses = ["Готово", "В работе", "Готово", "В работе", "Готово", "В работе", "Готово", "В работе"];
-      const names2 = (LOTUS.doctors || []).map(d => d.name);
-      return names.map((n, i) => ({ id: "lab-" + (i + 1), patient: n, test: tests[i], doctor: names2[i % Math.max(names2.length, 1)] || "—", ordered: "2026-10-" + (20 + (i % 7)), status: statuses[i] }));
-    }
-
     let staff = [], pharmacy = [], labQueue = [], rooms = [], issues = [], leaveRequests = [];
     let editingStaffId = null, editingPharmId = null, editingPatientId = null;
 
@@ -332,8 +273,20 @@
       };
 
       items = await loadSchedule();
-      labQueue = loadStore(LAB_KEY, seedLab);
-      pharmacy = loadStore(PHARM_KEY, seedPharmacy);
+      labQueue = [];
+      pharmacy = [];
+      issues = [];
+      try {
+        const [labResult, pharmacyResult] = await Promise.all([
+          lotusApi(doctor.role === "chief" ? "/admin/labs" : "/doctor/labs"),
+          lotusApi(doctor.role === "chief" ? "/admin/pharmacy" : "/doctor/pharmacy")
+        ]);
+        labQueue = labResult.orders || [];
+        pharmacy = pharmacyResult.items || [];
+        issues = pharmacyResult.issues || [];
+      } catch (error) {
+        notify("Лаборатория или аптека недоступна: " + (error.message || error));
+      }
       // Real rooms and leave requests come from MySQL, scoped by server-side RBAC.
       rooms = [];
       leaveRequests = [];
@@ -347,9 +300,8 @@
       } catch (error) {
         notify("Не удалось загрузить кабинеты или заявки из MySQL: " + (error.message || error));
       }
-      issues = loadStore(ISSUE_KEY, () => []);
-      /* Персонал, кабинеты и заявки: MySQL с проверкой ролей на сервере.
-         Лаборатория и аптечный склад всё ещё демонстрационные (localStorage). */
+      /* Все оперативные разделы (персонал, кабинеты, отгулы, лаборатория,
+         аптека и журнал выдач) теперь читаются из MySQL с серверным RBAC. */
       if (doctor.role === "chief") {
         try {
           const res = await lotusApi("/admin/doctors");
@@ -421,7 +373,18 @@
       $("adm-sidebar").classList.remove("open");
       editingStaffId = editingPharmId = editingPatientId = null;
       const renderers = { dashboard: renderDashboard, staff: renderStaff, lab: renderLab, ward: renderWard, treatment: renderTreatment, pharmacy: renderPharmacy, patients: renderPatients, requests: renderRequests };
-      renderers[sec]();
+      if (sec === "lab" || sec === "pharmacy") {
+        $("adm-content").innerHTML = `<p class="muted" style="padding:20px">Загружаем данные из MySQL…</p>`;
+        const apiPath = (doctor.role === "chief" ? "/admin" : "/doctor") + (sec === "lab" ? "/labs" : "/pharmacy");
+        lotusApi(apiPath).then(result => {
+          if (sec === "lab") labQueue = result.orders || [];
+          else { pharmacy = result.items || []; issues = result.issues || []; }
+          if (section === sec) renderers[sec]();
+        }).catch(error => {
+          if (section === sec) $("adm-content").innerHTML = `<p class="muted" style="padding:20px">Не удалось загрузить данные: ${esc(error.message || error)}</p>`;
+          notify("Ошибка загрузки: " + (error.message || error));
+        });
+      } else renderers[sec]();
     }
     function requireChief() {
       if (doctor.role !== "chief") { goTo("dashboard"); return false; }
@@ -915,22 +878,21 @@
           // атомарно переводит сам приём в статус completed — это тот же
           // сервер, который проверяет, что приём действительно на расписании
           // этого врача (403, если нет).
+          const refs = Array.from(document.querySelectorAll(".end-lab-ref:checked")).map(cb => cb.value);
           await lotusApi("/doctor/consultations", {
             method: "POST",
-            body: { appointmentId: item.id, anamnesis: anamnesis || undefined, icd10Code, icd10Name, treatmentNote: note || undefined, markCompleted: true }
+            body: {
+              appointmentId: item.id, anamnesis: anamnesis || undefined,
+              icd10Code, icd10Name, treatmentNote: note || undefined,
+              labTests: refs, markCompleted: true
+            }
           });
           item.status = "done"; item.anamnesis = anamnesis; item.icd10 = icdRaw; item.note = note;
-          // Направления на анализы — часть локального демо-модуля
-          // «Лаборатория» (не входит в обязательную схему БД/эндпоинтов),
-          // поэтому остаются в localStorage, как и раньше.
-          const refs = Array.from(document.querySelectorAll(".end-lab-ref:checked")).map(cb => cb.value);
-          if (refs.length) {
-            const today = new Date().toISOString().slice(0, 10);
-            refs.forEach(test => labQueue.push({
-              id: "lab-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-              patient: item.patient.name, test, doctor: doctor.name, ordered: today, status: "Назначено"
-            }));
-            saveStore(LAB_KEY, labQueue);
+          // Clinical note and referrals are committed together by the API.
+          try {
+            labQueue = (await lotusApi("/doctor/labs")).orders || [];
+          } catch (refreshError) {
+            notify("Направления сохранены; не удалось обновить список: " + (refreshError.message || refreshError));
           }
           closeModal();
           if (section === "dashboard") renderDashboard(); else renderScheduleList();
@@ -1149,13 +1111,14 @@
       if (!requireChief()) return;
       const c = $("adm-content");
       const done = labQueue.filter(l => l.status === "Готово").length;
+      const working = labQueue.filter(l => l.status === "В работе").length;
       c.innerHTML = `
         <div class="adm-section-head"><h2>Лабораторная очередь</h2></div>
-        <p class="muted" style="margin-top:-6px">Демо-раздел: хранится только в этом браузере (localStorage), не в базе данных — лабораторная очередь не входила в обязательную схему БД/эндпоинтов этого проекта.</p>
+        <p class="muted" style="margin-top:-6px">Направления создаются при завершении консультации и сохраняются в MySQL. Здесь отслеживается статус направления, а не результаты лабораторных исследований.</p>
         <div class="adm-grid" id="lab-tiles"></div>
-        <p class="muted" style="margin-bottom:10px">Нажмите на строку, чтобы переключить статус анализа.</p>
+        <p class="muted" style="margin-bottom:10px">Нажмите на активную строку, чтобы перевести направление на следующий этап: «Назначено» → «В работе» → «Готово».</p>
         <div class="adm-table-wrap"><div id="lab-table"></div></div>`;
-      $("lab-tiles").innerHTML = [["▣","Всего заказов",labQueue.length],["✚","Готово",done],["◷","В работе",labQueue.length-done]].map(([ic,label,n]) => tile(ic,label,n)).join("");
+      $("lab-tiles").innerHTML = [["▣","Всего направлений",labQueue.length],["✚","Готово",done],["◷","В работе",working]].map(([ic,label,n]) => tile(ic,label,n)).join("");
       lotusAnimateList($("lab-tiles"));
       animateCountUp($("lab-tiles"));
       drawLabTable();
@@ -1163,14 +1126,24 @@
     function drawLabTable() {
       $("lab-table").innerHTML = `<table class="adm-table"><thead><tr>
           <th>ID</th><th>Пациент</th><th>Анализ</th><th>Врач</th><th>Дата</th><th>Статус</th></tr></thead>
-        <tbody>${labQueue.map(l => `<tr class="row-edit" data-id="${l.id}">
-          <td>${l.id}</td><td>${esc(l.patient)}</td><td>${esc(l.test)}</td><td>${esc(l.doctor)}</td><td>${esc(l.ordered)}</td>
+        <tbody>${labQueue.map(l => `<tr ${l.status !== "Готово" ? `class="row-edit" data-id="${esc(l.id)}"` : ""}>
+          <td>${esc(l.id)}</td><td>${esc(l.patient)}</td><td>${esc(l.test)}</td><td>${esc(l.doctor)}</td><td>${esc(l.ordered)}</td>
           <td>${badge(l.status === "Готово" ? "good" : "warn", l.status)}</td></tr>`).join("")}</tbody></table>`;
-      $("lab-table").querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", () => {
+      $("lab-table").querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", async () => {
         const row = labQueue.find(l => l.id === tr.dataset.id);
-        row.status = row.status === "Готово" ? "В работе" : "Готово";
-        saveStore(LAB_KEY, labQueue);
-        drawLabTable();
+        if (!row || row.status === "Готово") return;
+        tr.removeAttribute("data-id");
+        const status = row.status === "Назначено" ? "В работе" : "Готово";
+        try {
+          const result = await lotusApi("/admin/labs/" + encodeURIComponent(row.id), {
+            method: "PATCH", body: { status }
+          });
+          labQueue = labQueue.map(l => l.id === row.id ? result.order : l);
+          renderLab();
+        } catch (error) {
+          notify("Не удалось обновить направление: " + (error.message || error));
+          drawLabTable();
+        }
       }));
     }
 
@@ -1337,20 +1310,19 @@
         </form>
       </div>`;
     }
+    async function refreshPharmacy() {
+      const result = await lotusApi(doctor.role === "chief" ? "/admin/pharmacy" : "/doctor/pharmacy");
+      pharmacy = result.items || [];
+      issues = result.issues || [];
+    }
     function renderPharmacy() {
       if (doctor.role !== "chief") return renderPharmacyIssue();
       const c = $("adm-content");
       const outOfStock = pharmacy.filter(p => p.qty === 0).length;
       const low = pharmacy.filter(p => p.qty > 0 && p.qty < 10).length;
       c.innerHTML = `
-        <div class="adm-section-head">
-          <h2>Управление аптекой</h2>
-          <div style="display:flex;gap:8px">
-            <button class="btn gold" id="pharm-invoice">Создать накладную</button>
-            <button class="btn ghost" id="pharm-supplier">Поставщик</button>
-          </div>
-        </div>
-        <p class="muted" style="margin-top:-6px">Демо-раздел: склад и журнал выдач хранятся только в этом браузере (localStorage), не в базе данных — учёт аптеки не входил в обязательную схему БД/эндпоинтов этого проекта.</p>
+        <div class="adm-section-head"><h2>Управление аптекой</h2></div>
+        <p class="muted" style="margin-top:-6px">Демонстрационные остатки препаратов и журнал выдач сохраняются в MySQL. Эти данные не являются реальным учётом лекарственных средств.</p>
         <div class="adm-grid" id="pharm-tiles"></div>
         <div class="adm-panels">
           <div class="adm-card chart-card"><h3>Остаток по топ-позициям</h3><div id="pharm-bar"></div></div>
@@ -1371,12 +1343,8 @@
         { label: "Заканчивается", value: low, color: cssVar("--chart-3") },
         { label: "Нет в наличии", value: outOfStock, color: cssVar("--rose") }
       ]);
-
-      $("pharm-invoice").addEventListener("click", () => notify("Накладная сформирована (демо)."));
-      $("pharm-supplier").addEventListener("click", () => notify("Карточка поставщика открыта (демо)."));
       $("pharm-form-host").innerHTML = pharmForm(); bindPharmForm();
       drawPharmTable();
-
       $("issue-log").innerHTML = issues.length ? `<table class="adm-table"><thead><tr>
           <th>Время</th><th>Препарат</th><th>Кол-во</th><th>Для кого/чего</th><th>Врач</th></tr></thead>
         <tbody>${issues.slice(0, 30).map(i => `<tr><td>${new Date(i.date).toLocaleString("ru-RU", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })}</td>
@@ -1384,46 +1352,54 @@
         : `<p class="muted" style="padding:16px">Выдач пока не было.</p>`;
     }
 
-    /* ---------- Аптека: выдача препаратов обычным врачом (п.1) ---------- */
     function renderPharmacyIssue() {
       const c = $("adm-content");
       const low = pharmacy.filter(p => p.qty > 0 && p.qty < 10).length;
       const out = pharmacy.filter(p => p.qty === 0).length;
+      const today = new Date().toISOString().slice(0, 10);
+      const available = pharmacy.filter(p => p.qty > 0 && (!p.expire || p.expire >= today));
       c.innerHTML = `
         <div class="adm-section-head"><h2>Аптека — выдача препаратов</h2></div>
-        <p class="muted" style="margin-top:-6px">Демо-раздел: склад хранится только в этом браузере (localStorage), не в базе данных. Выберите препарат, укажите количество и для кого/чего он выдаётся — остаток на складе уменьшится сразу.</p>
+        <p class="muted" style="margin-top:-6px">Демонстрационный склад клиники. Выдача записывается в MySQL, остаток уменьшается атомарно и не может стать отрицательным.</p>
         <div class="adm-grid" id="pharm-tiles"></div>
         <div class="adm-form-card">
           <h3>Выдать препарат</h3>
           <form id="issue-form">
             <div class="form-grid">
-              <label>Препарат<select id="is-drug">${pharmacy.map(p => `<option value="${p.id}" ${p.qty === 0 ? "disabled" : ""}>${esc(p.name)} — остаток ${p.qty}</option>`).join("")}</select></label>
-              <label>Количество<input id="is-qty" type="number" min="1" value="1"></label>
-              <label style="grid-column:1/-1">Для кого / для чего<input id="is-reason" required placeholder="Например: Мария Белова — назначение после приёма"></label>
+              <label>Препарат<select id="is-drug" required>${available.map(p => `<option value="${esc(p.id)}">${esc(p.name)} — остаток ${p.qty}</option>`).join("")}</select></label>
+              <label>Количество<input id="is-qty" type="number" min="1" step="1" value="1" required></label>
+              <label style="grid-column:1/-1">Для кого / для чего<input id="is-reason" required maxlength="300" placeholder="Например: выдача по назначению (демо)"></label>
             </div>
-            <div class="adm-form-actions"><button type="submit" class="btn success">Выдать</button></div>
+            <div class="adm-form-actions"><button type="submit" class="btn success" ${available.length === 0 ? "disabled" : ""}>Выдать</button></div>
           </form>
         </div>
-        <div class="adm-section-head" style="margin-top:8px"><h2>Мои выдачи сегодня</h2></div>
+        <div class="adm-section-head" style="margin-top:8px"><h2>Мои выдачи</h2></div>
         <div class="adm-table-wrap" id="issue-table"></div>`;
-      $("pharm-tiles").innerHTML = [["⚗","Позиций на складе",pharmacy.length],["◷","Заканчивается",low],["✚","Нет в наличии",out]].map(([ic,label,n]) => tile(ic,label,n)).join("");
+      $("pharm-tiles").innerHTML = [["⚗","Позиций на складе",pharmacy.length],["◷","Заканчиваются",low],["✚","Нет в наличии",out]].map(([ic,label,n]) => tile(ic,label,n)).join("");
       lotusAnimateList($("pharm-tiles"));
       animateCountUp($("pharm-tiles"));
 
-      $("issue-form").addEventListener("submit", (e) => {
+      $("issue-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         const drug = pharmacy.find(p => p.id === $("is-drug").value);
-        const qty = Math.max(1, Number($("is-qty").value || 1));
+        const qty = Number($("is-qty").value);
         const reason = $("is-reason").value.trim();
-        if (!drug) return;
-        if (!reason) { notify("Укажите, для кого или для чего выдаётся препарат."); return; }
-        if (qty > drug.qty) { notify("На складе недостаточно: остаток " + drug.qty + "."); return; }
-        drug.qty -= qty;
-        saveStore(PHARM_KEY, pharmacy);
-        issues.unshift({ id: "iss-" + Date.now().toString(36), drug: drug.name, qty, reason, doctor: doctor.name, date: new Date().toISOString() });
-        saveStore(ISSUE_KEY, issues);
-        notify("Выдано: " + drug.name + " × " + qty);
-        renderPharmacyIssue();
+        if (!drug || !Number.isInteger(qty) || qty < 1 || !reason) { notify("Проверьте препарат, количество и основание выдачи."); return; }
+        const button = e.target.querySelector("button[type=submit]");
+        button.disabled = true;
+        try {
+          await lotusApi("/doctor/pharmacy/issues", {
+            method: "POST", body: { itemId: drug.id, qty, reason }
+          });
+          try { await refreshPharmacy(); } catch (error) {
+            notify("Выдача сохранена, но не удалось обновить список: " + (error.message || error));
+          }
+          notify("Выдано: " + drug.name + " × " + qty);
+          renderPharmacyIssue();
+        } catch (error) {
+          button.disabled = false;
+          notify("Не удалось выдать препарат: " + (error.message || error));
+        }
       });
       drawIssueTable();
     }
@@ -1431,15 +1407,15 @@
       const mine = issues.filter(i => i.doctor === doctor.name);
       $("issue-table").innerHTML = mine.length ? `<table class="adm-table"><thead><tr>
           <th>Время</th><th>Препарат</th><th>Кол-во</th><th>Для кого/чего</th></tr></thead>
-        <tbody>${mine.slice(0, 20).map(i => `<tr><td>${new Date(i.date).toLocaleTimeString("ru-RU", { hour:"2-digit", minute:"2-digit" })}</td>
+        <tbody>${mine.slice(0, 20).map(i => `<tr><td>${new Date(i.date).toLocaleString("ru-RU", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })}</td>
           <td>${esc(i.drug)}</td><td>${i.qty}</td><td>${esc(i.reason)}</td></tr>`).join("")}</tbody></table>`
-        : `<p class="muted" style="padding:16px">Сегодня выдач ещё не было.</p>`;
+        : `<p class="muted" style="padding:16px">Выдач ещё не было.</p>`;
     }
     function drawPharmTable() {
       $("pharm-table").innerHTML = `<table class="adm-table"><thead><tr>
           <th>ID</th><th>Название</th><th>Срок годности</th><th>Производство</th><th>Цена</th><th>Кол-во</th><th>Статус</th></tr></thead>
-        <tbody>${pharmacy.map(p => `<tr class="row-edit" data-id="${p.id}">
-          <td>${p.id}</td><td>${esc(p.name)}</td><td>${esc(p.expire)}</td><td>${esc(p.manufacture)}</td>
+        <tbody>${pharmacy.map(p => `<tr class="row-edit" data-id="${esc(p.id)}">
+          <td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${esc(p.expire)}</td><td>${esc(p.manufacture)}</td>
           <td>${p.price} сом</td><td>${p.qty}</td><td>${stockBadge(p.qty)}</td></tr>`).join("")}</tbody></table>`;
       $("pharm-table").querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", () => {
         editingPharmId = tr.dataset.id;
@@ -1449,25 +1425,53 @@
       }));
     }
     function bindPharmForm() {
-      $("pharm-form").addEventListener("submit", (e) => {
+      $("pharm-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         const rec = {
-          id: editingPharmId || ("ph-" + Date.now().toString(36)),
           name: $("pf-name").value.trim(), price: Number($("pf-price").value || 0),
-          expire: $("pf-expire").value, manufacture: $("pf-manufacture").value, qty: Number($("pf-qty").value || 0)
+          expire: $("pf-expire").value || null,
+          manufacture: $("pf-manufacture").value || null,
+          qty: Number($("pf-qty").value || 0)
         };
-        if (!rec.name) { notify("Укажите название препарата."); return; }
-        if (editingPharmId) pharmacy = pharmacy.map(p => p.id === editingPharmId ? rec : p);
-        else pharmacy.push(rec);
-        saveStore(PHARM_KEY, pharmacy);
-        notify(editingPharmId ? "Позиция обновлена." : "Позиция добавлена на склад.");
-        renderPharmacy();
+        if (!rec.name || !Number.isInteger(rec.qty) || !Number.isInteger(rec.price) || rec.qty < 0 || rec.price < 0) {
+          notify("Укажите корректные название, цену и количество."); return;
+        }
+        const button = e.target.querySelector("button[type=submit]");
+        button.disabled = true;
+        try {
+          if (editingPharmId) {
+            await lotusApi("/admin/pharmacy/items/" + encodeURIComponent(editingPharmId), {
+              method: "PATCH", body: rec
+            });
+          } else {
+            await lotusApi("/admin/pharmacy/items", { method: "POST", body: rec });
+          }
+          try { await refreshPharmacy(); } catch (error) {
+            notify("Изменение сохранено, но список не обновился: " + (error.message || error));
+          }
+          notify(editingPharmId ? "Позиция обновлена." : "Позиция добавлена на склад.");
+          editingPharmId = null;
+          renderPharmacy();
+        } catch (error) {
+          button.disabled = false;
+          notify("Ошибка сохранения: " + (error.message || error));
+        }
       });
-      $("pf-delete")?.addEventListener("click", () => {
-        pharmacy = pharmacy.filter(p => p.id !== editingPharmId);
-        saveStore(PHARM_KEY, pharmacy);
-        notify("Позиция удалена.");
-        renderPharmacy();
+      $("pf-delete")?.addEventListener("click", async (event) => {
+        if (!confirm("Убрать позицию со склада? История выдач сохранится.")) return;
+        event.target.disabled = true;
+        try {
+          await lotusApi("/admin/pharmacy/items/" + encodeURIComponent(editingPharmId), { method: "DELETE" });
+          try { await refreshPharmacy(); } catch (error) {
+            notify("Позиция деактивирована, но список не обновился: " + (error.message || error));
+          }
+          editingPharmId = null;
+          renderPharmacy();
+          notify("Позиция убрана со склада.");
+        } catch (error) {
+          event.target.disabled = false;
+          notify("Не удалось убрать позицию: " + (error.message || error));
+        }
       });
       $("pf-cancel")?.addEventListener("click", () => { editingPharmId = null; renderPharmacy(); });
     }

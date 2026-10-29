@@ -78,6 +78,7 @@ model Patient {
   appointments Appointment[]
   medicalRecord MedicalRecord?
   consultations Consultation[]
+  labOrders LabOrder[]
 
   @@index([phone])
   @@map("patients")
@@ -148,6 +149,8 @@ model Doctor {
   slots         AppointmentSlot[]
   appointments  Appointment[]
   consultations Consultation[]
+  labOrders LabOrder[]
+  pharmacyIssues PharmacyIssue[]
   assignedRoom Room?
   leaveRequests LeaveRequest[]
 
@@ -220,6 +223,7 @@ model Appointment {
   cancelReason  String?  @db.VarChar(255)
 
   consultation  Consultation?
+  labOrders LabOrder[]
 
   @@index([doctorId, scheduledAt])
   @@index([patientId, scheduledAt])
@@ -322,4 +326,57 @@ model LeaveRequest {
   @@index([doctorId, createdAt])
   @@index([status, date])
   @@map("leave_requests")
+}
+
+// Lab referrals are bound to a real appointment, the patient and the treating doctor.
+// This table contains orders/statuses, not laboratory result files.
+model LabOrder {
+  id             BigInt      @id @default(autoincrement())
+  appointmentId  BigInt
+  appointment    Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  patientId      BigInt
+  patient        Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId       String      @db.VarChar(40)
+  doctor         Doctor      @relation(fields: [doctorId], references: [id])
+  test           String      @db.VarChar(190)
+  status         String      @default("Назначено") @db.VarChar(20)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([appointmentId, test])
+  @@index([doctorId, createdAt])
+  @@index([patientId, createdAt])
+  @@index([status, createdAt])
+  @@map("lab_orders")
+}
+
+model PharmacyItem {
+  id            String      @id @db.VarChar(40)
+  name          String      @db.VarChar(190)
+  expire        DateTime?   @db.Date
+  manufacture   DateTime?   @db.Date
+  price         Int         @default(0)
+  qty           Int         @default(0)
+  active        Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  issues        PharmacyIssue[]
+
+  @@index([active, name])
+  @@map("pharmacy_items")
+}
+
+model PharmacyIssue {
+  id        BigInt       @id @default(autoincrement())
+  itemId    String       @db.VarChar(40)
+  item      PharmacyItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  doctorId  String       @db.VarChar(40)
+  doctor    Doctor       @relation(fields: [doctorId], references: [id])
+  qty       Int
+  reason    String       @db.VarChar(300)
+  createdAt DateTime     @default(now())
+
+  @@index([doctorId, createdAt])
+  @@index([itemId, createdAt])
+  @@map("pharmacy_issues")
 }

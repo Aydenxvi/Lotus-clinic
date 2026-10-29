@@ -2,6 +2,7 @@ const { z } = require("zod");
 const { prisma } = require("../config/db");
 const { ApiError } = require("../middleware/errorHandler");
 const booking = require("../services/booking.service");
+const { LAB_TESTS } = require("./clinical-operations.controller");
 
 // The chief ("Главный врач") is also a practicing doctor in the data model
 // (e.g. d0), so they carry a doctorId too and can use these doctor-scoped
@@ -97,6 +98,7 @@ const consultationSchema = z.object({
   icd10Code: z.string().trim().max(10).optional(),
   icd10Name: z.string().trim().max(255).optional(),
   treatmentNote: z.string().trim().max(5000).optional(),
+  labTests: z.array(z.enum(LAB_TESTS)).max(8).optional().default([]),
   markCompleted: z.boolean().optional().default(true)
 });
 
@@ -127,6 +129,17 @@ async function createConsultation(req, res) {
         treatmentNote: input.treatmentNote
       }
     });
+    if (input.labTests.length) {
+      await tx.labOrder.createMany({
+        data: [...new Set(input.labTests)].map(test => ({
+          appointmentId: appointment.id,
+          doctorId,
+          patientId: appointment.patientId,
+          test
+        })),
+        skipDuplicates: true
+      });
+    }
     if (input.markCompleted) {
       await tx.appointment.update({ where: { id: input.appointmentId }, data: { status: "completed" } });
     }

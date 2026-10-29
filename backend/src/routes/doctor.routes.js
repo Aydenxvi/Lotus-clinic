@@ -3,6 +3,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { doubleCsrfProtection } = require("../middleware/csrf");
 const operations = require("../controllers/operations.controller");
+const clinical = require("../controllers/clinical-operations.controller");
 const {
   mySchedule,
   myPatients,
@@ -18,6 +19,9 @@ const router = express.Router();
 // chief is included because the chief doctor also practices (see doctor.controller.js).
 router.use(requireAuth, requireRole("doctor", "chief"));
 
+router.get("/labs", asyncHandler(clinical.listMyLabs));
+router.get("/pharmacy", asyncHandler(clinical.getDoctorPharmacy));
+router.post("/pharmacy/issues", doubleCsrfProtection, asyncHandler(clinical.issueMedicine));
 router.get("/room", asyncHandler(operations.listMyRooms));
 router.patch("/room/status", doubleCsrfProtection, asyncHandler(operations.updateMyRoomStatus));
 router.get("/leaves", asyncHandler(operations.listMyLeaves));
