@@ -101,6 +101,7 @@ model Department {
   updatedAt   DateTime @updatedAt
 
   doctors     Doctor[]
+  rooms       Room[]
   services    Service[]
 
   @@map("departments")
@@ -147,6 +148,8 @@ model Doctor {
   slots         AppointmentSlot[]
   appointments  Appointment[]
   consultations Consultation[]
+  assignedRoom Room?
+  leaveRequests LeaveRequest[]
 
   @@index([departmentId])
   @@map("doctors")
@@ -287,4 +290,36 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@map("audit_logs")
+}
+
+// Rooms are clinic-owned and unique per doctor. A staff member may have at
+// most one assigned room, enforced by the unique index on doctorId.
+model Room {
+  id           String     @id @db.VarChar(80)
+  name         String     @db.VarChar(80)
+  departmentId String     @db.VarChar(40)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  doctorId     String?    @unique @db.VarChar(40)
+  doctor       Doctor?    @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  status       String     @default("Свободен") @db.VarChar(20)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([departmentId])
+  @@map("rooms")
+}
+
+model LeaveRequest {
+  id        BigInt   @id @default(autoincrement())
+  doctorId  String   @db.VarChar(40)
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  reason    String   @db.VarChar(1000)
+  status    String   @default("pending") @db.VarChar(20)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([doctorId, createdAt])
+  @@index([status, date])
+  @@map("leave_requests")
 }
