@@ -14,7 +14,7 @@ const {
   cookieOptions: {
     httpOnly: false,
     secure: env.cookieSecure,
-    sameSite: "lax",
+    sameSite: env.cookieSecure ? "none" : "lax",
     path: "/"
   },
   getSessionIdentifier: (req) => (req.session && req.session.id) || "anonymous",
@@ -30,3 +30,4 @@ function issueCsrfToken(req, res) {
 }
 
 module.exports = { doubleCsrfProtection, issueCsrfToken };
+

@@ -45,9 +45,10 @@ const sessionMiddleware = session({
   cookie: {
     httpOnly: true,
     secure: env.cookieSecure, // true in production behind HTTPS (Railway)
-    sameSite: "lax", // "lax" lets the Netlify frontend's top-level navigation/XHR work; switch to "none" (+ secure:true) only if frontend and API end up on fully different sites and you hit cross-site issues
+    sameSite: env.cookieSecure ? "none" : "lax", // "lax" lets the Netlify frontend's top-level navigation/XHR work; switch to "none" (+ secure:true) only if frontend and API end up on fully different sites and you hit cross-site issues
     maxAge: 60 * 60 * 1000 // 1 hour
   }
 });
 
 module.exports = { sessionMiddleware, sessionStore };
+
