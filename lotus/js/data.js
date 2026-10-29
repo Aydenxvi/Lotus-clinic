@@ -3,7 +3,7 @@ window.LOTUS = {
   // environment: local dev points at your local server, production points at
   // your Railway deployment. js/api.js reads this to know where to fetch
   // doctors/departments/appointments from instead of the static arrays below.
-  apiBase: "http://localhost:4000/api",
+  apiBase: ((window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") ? "http://localhost:4000/api" : "https://lotus-clinic-api.onrender.com/api"),
   brand: {
     name: "LOTUS CLINIC",
     short: "LOTUS",
@@ -658,3 +658,4 @@ window.LOTUS = {
     { n: 24, suffix: "/7", label: "лаборатория и приёмный покой" }
   ]
 };
+

@@ -10,7 +10,7 @@
    so it never runs before the live data (or the offline fallback) is ready.
 */
 (function () {
-  const API_BASE = (window.LOTUS && window.LOTUS.apiBase) || "http://localhost:4000/api";
+  const API_BASE = (window.LOTUS && window.LOTUS.apiBase) || ((window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") ? "http://localhost:4000/api" : "https://lotus-clinic-api.onrender.com/api");
   let csrfToken = null;
 
   async function ensureCsrf() {
@@ -94,3 +94,4 @@
     .then((d) => d.user)
     .catch(() => null);
 })();
+
