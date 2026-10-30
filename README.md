@@ -12,7 +12,7 @@ A responsive, role-based web application that connects patient bookings, clinica
 
 </div>
 
-![LOTUS CLINIC — desktop preview](lotus/preview-desktop.png)
+![LOTUS CLINIC — published homepage](docs/screenshots/home-desktop.png)
 
 > **Educational portfolio project.** LOTUS CLINIC uses fictional clinic and patient records. It is **not** a production medical records system, has not undergone a medical compliance or penetration-testing audit, and must not be used with real patient data.
 
@@ -57,11 +57,21 @@ Read the [architecture and data-flow notes](docs/ARCHITECTURE.md) for implementa
 
 ## Screenshots
 
-| Desktop | Mobile |
-| --- | --- |
-| ![Desktop interface](lotus/preview-desktop.png) | ![Mobile interface](lotus/preview-mobile.png) |
+Screenshots of **public pages** captured from the deployed Render site on 30 October 2026. No private patient or staff accounts were used.
 
-The screenshots are representative UI previews, not evidence of regulatory compliance or production clinical use.
+| Homepage | Doctors |
+| --- | --- |
+| ![LOTUS CLINIC homepage](docs/screenshots/home-desktop.png) | ![Doctor directory](docs/screenshots/doctors-desktop.png) |
+
+| Online booking | Featured pediatrician |
+| --- | --- |
+| ![Appointment booking page](docs/screenshots/appointment-desktop.png) | ![Featured pediatrician profile](docs/screenshots/malika-profile-desktop.png) |
+
+| Mobile view |
+| --- |
+| ![LOTUS CLINIC published homepage on a phone-width screen](docs/screenshots/home-mobile.png) |
+
+> Screenshots show fictional demo content. Patient and staff dashboards are deliberately excluded to avoid publishing health records, personal identifiers, or credentials. For protected views, use a supervised demo with fictional accounts.
 
 ## Project structure
 
