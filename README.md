@@ -57,7 +57,8 @@ Read the [architecture and data-flow notes](docs/ARCHITECTURE.md) for implementa
 
 ## Design evolution — from Figma to the final application
 
-The project went through four distinct iterations: **Figma → PHOENIX → LOTUS V1 → LOTUS CLINIC**. See the [real screenshots and design decisions](docs/DESIGN_EVOLUTION.md) ([по-русски](docs/DESIGN_EVOLUTION_RU.md)).
+The project evolved through five chronological stages: **early Figma → refined Figma → PHOENIX demo → transitional LOTUS → final LOTUS CLINIC**. See the [real screenshots and design decisions](docs/DESIGN_EVOLUTION.md) ([по-русски](docs/DESIGN_EVOLUTION_RU.md)).
+
 ## Screenshots
 
 Screenshots of **public pages** captured from the deployed Render site on 30 October 2026. No private patient or staff accounts were used.
